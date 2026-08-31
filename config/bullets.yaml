@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# bullets.yaml -- the bullet bank.
+#
+# Every bullet here is lifted verbatim from the canonical 2026 resume. The
+# tailoring step SELECTS and ORDERS from this file. It never writes a new
+# claim, never adds a skill, date, employer, or metric, and never rephrases a
+# bullet into something stronger than the original.
+#
+# If a job wants something that isn't in here, the correct outcome is a weaker
+# match -- not a new bullet.
+#
+# strength: 1-5, how well the bullet stands on its own regardless of posting.
+# tags: used for overlap scoring against the job description.
+# ---------------------------------------------------------------------------
+
+summary_base: >-
+  Data and analytics professional with a B.S. in Computer Science and an M.Eng.
+  from Oregon State University. Builds automated ETL pipelines in Python and SQL
+  and replaces manual reporting with tools teams can run themselves. Experience
+  across the full data lifecycle - ingestion, transformation, quality
+  validation, and BI reporting - plus hands-on evaluation of AI model outputs at
+  scale.
+
+bullets:
+  # -- Projects ------------------------------------------------------------
+  - id: tracking_engine_ingest
+    employer: "Project: Automated Job Market Data Pipeline"
+    text: "Built a scheduled ETL pipeline that ingests job postings from nine public job-board and ATS REST APIs, normalizes them into a single schema, and deduplicates on insert."
+    tags: [etl, python, postgres, rest_api, orchestration, data_pipeline]
+    strength: 5
+
+  - id: tracking_engine_deploy
+    employer: "Project: Automated Job Market Data Pipeline"
+    text: "Deployed on GitHub Actions with a nightly cron job, retry and backoff handling, and run-level telemetry written to a PostgreSQL database."
+    tags: [orchestration, github_actions, postgres, reliability, automation]
+    strength: 5
+
+  - id: tracking_engine_filters
+    employer: "Project: Automated Job Market Data Pipeline"
+    text: "Implemented a rules-based filtering layer that logs every decision, making the ruleset measurable and tunable against real outcomes."
+    tags: [data_quality, python, process_improvement, automation]
+    strength: 4
+
+  - id: transaction_pipeline_etl
+    employer: "Project: Automated Finance Data Pipeline"
+    text: "Engineered an end-to-end ETL pipeline to ingest, clean, and standardize financial datasets from multiple sources."
+    tags: [etl, python, sql, data_cleaning, data_pipeline]
+    strength: 5
+
+  - id: transaction_pipeline_schema
+    employer: "Project: Automated Finance Data Pipeline"
+    text: "Loaded processed records into a structured SQL schema to support reliable querying and downstream analysis."
+    tags: [sql, data_modeling, etl, postgres]
+    strength: 4
+
+  - id: survey_dashboard_build
+    employer: "Project: Data Professional Survey Dashboard"
+    text: "Built an interactive dashboard analyzing a global survey of data professionals across salary, tooling, and job satisfaction."
+    tags: [power_bi, bi_reporting, data_viz, analytics]
+    strength: 5
+
+  - id: survey_dashboard_powerquery
+    employer: "Project: Data Professional Survey Dashboard"
+    text: "Cleaned and reshaped raw survey data in Power Query to support accurate aggregation, filtering, and drill-down."
+    tags: [power_query, data_cleaning, excel, power_bi, data_quality]
+    strength: 4
+
+  # -- Experience ----------------------------------------------------------
+  - id: greystar_reporting_workflow
+    employer: Greystar
+    text: "Built an Excel-based reporting workflow that consolidated inspections, unit turns, and task completion into a single tracked dataset, replacing manual status updates across two teams."
+    tags: [automation, excel, process_improvement, data_pipeline, initiative, bi_reporting]
+    strength: 5
+
+  - id: greystar_standardize_train
+    employer: Greystar
+    text: "Standardized data entry and trained team members on the new process, improving reporting consistency and visibility between maintenance and leasing."
+    tags: [process_improvement, stakeholder_training, data_quality, initiative]
+    strength: 4
+
+  - id: vanguard_excel_tracking
+    employer: Vanguard EMS
+    text: "Built Excel tracking tools to record and monitor production metrics across multiple stages of SMT assembly."
+    tags: [excel, automation, manufacturing, process_improvement, bi_reporting]
+    strength: 4
+
+  - id: vanguard_ipc_inspection
+    employer: Vanguard EMS
+    text: "Inspected circuit boards to IPC-610 standards, documented defect trends, and identified discrepancies between board designs and machine programming during production runs."
+    tags: [quality_assurance, manufacturing, data_quality]
+    strength: 3
+
+  - id: dataannotation_labeling
+    employer: DataAnnotation
+    text: "Reviewed and labeled large datasets for machine learning and NLP model training, applying written quality standards consistently at scale."
+    tags: [ai_evaluation, data_quality, llm, qa]
+    strength: 5
+
+  - id: dataannotation_error_detection
+    employer: DataAnnotation
+    text: "Identified inconsistencies and factual errors in AI-generated outputs and documented corrections to improve overall dataset quality."
+    tags: [ai_evaluation, data_quality, llm, qa]
+    strength: 5
+
+  - id: dataannotation_code_review
+    employer: DataAnnotation
+    text: "Evaluated and debugged submitted code across Python, C++, JavaScript, and HTML."
+    tags: [code_review, python, ai_evaluation, qa]
+    strength: 4
+
+  - id: osu_ta_recitations
+    employer: Oregon State University
+    text: "Led weekly recitations and office hours, helping undergraduates troubleshoot SQL, HTML, CSS, and JavaScript."
+    tags: [sql, stakeholder_training, teaching, code_review]
+    strength: 3

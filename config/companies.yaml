@@ -1,0 +1,186 @@
+# ---------------------------------------------------------------------------
+# companies.yaml -- employers polled every night, one row per ATS board.
+#
+# RULE: nothing lands here unvalidated. A wrong slug fails in two ways, and the
+# second is worse than the first. It can return an empty board, which looks
+# exactly like a company with no openings and sits here contributing nothing.
+# Or it can land on a DIFFERENT company's board that returns real postings,
+# which files someone else's jobs under this employer's name. Confirm both that
+# the board answers and that it belongs to the right company:
+#
+#     python -m tracking_engine.find_slug "Blue Shield of California"
+#     python -m tracking_engine.find_slug --slug blueshieldca
+#
+# find_slug checks ownership against the board's own reported name and reports
+# MISMATCH rather than CONFIRMED when they disagree. The first sweep that built
+# this file produced five such mismatches out of 158 -- including `lever/blue`
+# for Blue Shield of California, which is really BlueCloud Services, Inc.
+#
+# tier: 1 = poll first / highest interest, 2 = normal, 3 = long tail.
+# The `companies` table is the runtime source of truth; this file seeds it.
+#
+# ---------------------------------------------------------------------------
+# KNOWN GAP -- the Sacramento anchors are not here, and it is not an oversight.
+#
+# Kaiser Permanente, Sutter Health, Dignity Health, UC Davis Health, Blue Shield
+# of California, VSP, Delta Dental, SMUD, Sacramento County and the City all run
+# Workday or a bespoke portal. Neither exposes a keyless public JSON board, so
+# none of the five supported ATSes can reach them. They were all probed and none
+# confirmed.
+#
+# That means the local-address advantage this pipeline was partly built around
+# is NOT currently served by it. Those employers stay a manual channel alongside
+# CalCareers, and the weekly readout carries a standing reminder for both.
+# ---------------------------------------------------------------------------
+
+companies:
+  - { name: "Airbyte", ats: ashby, slug: airbyte, tier: 1 }
+  - { name: "Algolia", ats: greenhouse, slug: algolia, tier: 1 }
+  - { name: "Amplitude", ats: greenhouse, slug: amplitude, tier: 1 }
+  - { name: "Arize AI", ats: greenhouse, slug: arizeai, tier: 1 }
+  - { name: "Astronomer", ats: ashby, slug: astronomer, tier: 1 }
+  - { name: "Benchling", ats: ashby, slug: benchling, tier: 1 }
+  - { name: "ClickHouse", ats: greenhouse, slug: clickhouse, tier: 1 }
+  - { name: "Cockroach Labs", ats: greenhouse, slug: cockroachlabs, tier: 1 }
+  - { name: "Comet ML", ats: greenhouse, slug: comet, tier: 1 }
+  - { name: "Confluent", ats: ashby, slug: confluent, tier: 1 }
+  - { name: "Databricks", ats: greenhouse, slug: databricks, tier: 1 }
+  - { name: "Dataiku", ats: greenhouse, slug: dataiku, tier: 1 }
+  - { name: "Deepnote", ats: ashby, slug: deepnote, tier: 1 }
+  - { name: "EDB", ats: greenhouse, slug: edb, tier: 1 }
+  - { name: "Elastic", ats: greenhouse, slug: elastic, tier: 1 }
+  - { name: "Fiddler AI", ats: ashby, slug: fiddler-ai, tier: 1 }
+  - { name: "Fivetran", ats: greenhouse, slug: fivetran, tier: 1 }
+  - { name: "Galileo", ats: greenhouse, slug: galileo, tier: 1 }
+  - { name: "GoodData", ats: ashby, slug: gooddata, tier: 1 }
+  - { name: "Hevo Data", ats: lever, slug: hevodata, tier: 1 }
+  - { name: "Hex", ats: ashby, slug: hex, tier: 1 }
+  - { name: "Hightouch", ats: greenhouse, slug: hightouch, tier: 1 }
+  - { name: "Imply", ats: greenhouse, slug: imply, tier: 1 }
+  - { name: "Komodo Health", ats: greenhouse, slug: komodohealth, tier: 1 }
+  - { name: "LangChain", ats: ashby, slug: langchain, tier: 1 }
+  - { name: "Lightdash", ats: ashby, slug: lightdash, tier: 1 }
+  - { name: "LlamaIndex", ats: ashby, slug: llamaindex, tier: 1 }
+  - { name: "Materialize", ats: ashby, slug: materialize, tier: 1 }
+  - { name: "Matillion", ats: lever, slug: matillion, tier: 1 }
+  - { name: "Metabase", ats: lever, slug: metabase, tier: 1 }
+  - { name: "Mixpanel", ats: greenhouse, slug: mixpanel, tier: 1 }
+  - { name: "MotherDuck", ats: ashby, slug: motherduck, tier: 1 }
+  - { name: "Natera", ats: greenhouse, slug: natera, tier: 1 }
+  - { name: "Neon", ats: lever, slug: neon, tier: 1 }
+  - { name: "Pendo", ats: greenhouse, slug: pendo, tier: 1 }
+  - { name: "Percona", ats: ashby, slug: percona, tier: 1 }
+  - { name: "Pinecone", ats: ashby, slug: pinecone, tier: 1 }
+  - { name: "PlanetScale", ats: greenhouse, slug: planetscale, tier: 1 }
+  - { name: "PostHog", ats: ashby, slug: posthog, tier: 1 }
+  - { name: "Prefect", ats: ashby, slug: prefect, tier: 1 }
+  - { name: "Sigma Computing", ats: greenhouse, slug: sigmacomputing, tier: 1 }
+  - { name: "SingleStore", ats: greenhouse, slug: singlestore, tier: 1 }
+  - { name: "Sisense", ats: greenhouse, slug: sisense, tier: 1 }
+  - { name: "Snowflake", ats: ashby, slug: snowflake, tier: 1 }
+  - { name: "StarTree", ats: greenhouse, slug: startree, tier: 1 }
+  - { name: "Supabase", ats: ashby, slug: supabase, tier: 1 }
+  - { name: "Truveta", ats: greenhouse, slug: truveta, tier: 1 }
+  - { name: "Weaviate", ats: ashby, slug: weaviate, tier: 1 }
+  - { name: "Yugabyte", ats: greenhouse, slug: yugabyte, tier: 1 }
+  - { name: "Zilliz", ats: lever, slug: zilliz, tier: 1 }
+  - { name: "1Password", ats: ashby, slug: 1password, tier: 2 }
+  - { name: "Affirm", ats: greenhouse, slug: affirm, tier: 2 }
+  - { name: "Agiloft", ats: lever, slug: agiloft, tier: 2 }
+  - { name: "Airslate", ats: lever, slug: airslate, tier: 2 }
+  - { name: "Alloy", ats: greenhouse, slug: alloy, tier: 2 }
+  - { name: "Anrok", ats: ashby, slug: anrok, tier: 2 }
+  - { name: "Beyond Identity", ats: greenhouse, slug: beyond, tier: 2 }
+  - { name: "Bill.com", ats: greenhouse, slug: billcom, tier: 2 }
+  - { name: "Bloomreach", ats: greenhouse, slug: bloomreach, tier: 2 }
+  - { name: "Brex", ats: greenhouse, slug: brex, tier: 2 }
+  - { name: "Buildkite", ats: greenhouse, slug: buildkite, tier: 2 }
+  - { name: "Cedar", ats: ashby, slug: cedar, tier: 2 }
+  - { name: "Checkr", ats: greenhouse, slug: checkr, tier: 2 }
+  - { name: "Chime", ats: greenhouse, slug: chime, tier: 2 }
+  - { name: "CircleCI", ats: greenhouse, slug: circleci, tier: 2 }
+  - { name: "Clover Health", ats: greenhouse, slug: cloverhealth, tier: 2 }
+  - { name: "Collective Health", ats: greenhouse, slug: collectivehealth, tier: 2 }
+  - { name: "Color Health", ats: ashby, slug: color-health, tier: 2 }
+  - { name: "Conga", ats: greenhouse, slug: conga, tier: 2 }
+  - { name: "Constructor", ats: ashby, slug: constructor, tier: 2 }
+  - { name: "Contentsquare", ats: lever, slug: contentsquare, tier: 2 }
+  - { name: "Coupa", ats: lever, slug: coupa, tier: 2 }
+  - { name: "DDN", ats: ashby, slug: ddn, tier: 2 }
+  - { name: "DISCO", ats: greenhouse, slug: disco, tier: 2 }
+  - { name: "Dashlane", ats: greenhouse, slug: dashlane, tier: 2 }
+  - { name: "Dave", ats: ashby, slug: dave, tier: 2 }
+  - { name: "Descope", ats: greenhouse, slug: descope, tier: 2 }
+  - { name: "Doppler", ats: ashby, slug: doppler, tier: 2 }
+  - { name: "Dovetail", ats: ashby, slug: dovetail, tier: 2 }
+  - { name: "Dropbox", ats: greenhouse, slug: dropbox, tier: 2 }
+  - { name: "Druva", ats: greenhouse, slug: druva, tier: 2 }
+  - { name: "Everlaw", ats: greenhouse, slug: everlaw, tier: 2 }
+  - { name: "Expensify", ats: ashby, slug: expensify, tier: 2 }
+  - { name: "Fairmarkit", ats: greenhouse, slug: fairmarkit, tier: 2 }
+  - { name: "Feedzai", ats: greenhouse, slug: feedzai, tier: 2 }
+  - { name: "Filevine", ats: lever, slug: filevine, tier: 2 }
+  - { name: "Forward Health", ats: greenhouse, slug: forward, tier: 2 }
+  - { name: "FullStory", ats: ashby, slug: fullstory, tier: 2 }
+  - { name: "Ginkgo Bioworks", ats: greenhouse, slug: ginkgobioworks, tier: 2 }
+  - { name: "Gusto", ats: greenhouse, slug: gusto, tier: 2 }
+  - { name: "Harvey", ats: ashby, slug: harvey, tier: 2 }
+  - { name: "Headway", ats: ashby, slug: headway, tier: 2 }
+  - { name: "Highnote", ats: greenhouse, slug: highnote, tier: 2 }
+  - { name: "Included Health", ats: lever, slug: includedhealth, tier: 2 }
+  - { name: "Infisical", ats: ashby, slug: infisical, tier: 2 }
+  - { name: "JumpCloud", ats: lever, slug: jumpcloud, tier: 2 }
+  - { name: "Keeper Security", ats: greenhouse, slug: keepersecurity, tier: 2 }
+  - { name: "Latch", ats: lever, slug: latch, tier: 2 }
+  - { name: "LaunchDarkly", ats: greenhouse, slug: launchdarkly, tier: 2 }
+  - { name: "Levelpath", ats: ashby, slug: levelpath, tier: 2 }
+  - { name: "Lithic", ats: greenhouse, slug: lithic, tier: 2 }
+  - { name: "LogRocket", ats: lever, slug: logrocket, tier: 2 }
+  - { name: "Lyra Health", ats: lever, slug: lyrahealth, tier: 2 }
+  - { name: "Marqeta", ats: greenhouse, slug: marqeta, tier: 2 }
+  - { name: "Maven Clinic", ats: greenhouse, slug: mavenclinic, tier: 2 }
+  - { name: "Melio", ats: greenhouse, slug: melio, tier: 2 }
+  - { name: "Mercury", ats: greenhouse, slug: mercury, tier: 2 }
+  - { name: "Middesk", ats: ashby, slug: middesk, tier: 2 }
+  - { name: "Modern Health", ats: greenhouse, slug: modernhealth, tier: 2 }
+  - { name: "Modern Treasury", ats: ashby, slug: moderntreasury, tier: 2 }
+  - { name: "Nasuni", ats: greenhouse, slug: nasuni, tier: 2 }
+  - { name: "Nintex", ats: greenhouse, slug: nintex, tier: 2 }
+  - { name: "Numeral", ats: ashby, slug: numeral, tier: 2 }
+  - { name: "Okta", ats: greenhouse, slug: okta, tier: 2 }
+  - { name: "Omada Health", ats: greenhouse, slug: omadahealth, tier: 2 }
+  - { name: "Ontra", ats: ashby, slug: ontra, tier: 2 }
+  - { name: "Oscar Health", ats: greenhouse, slug: oscar, tier: 2 }
+  - { name: "PandaDoc", ats: greenhouse, slug: pandadoc, tier: 2 }
+  - { name: "Persona", ats: ashby, slug: persona, tier: 2 }
+  - { name: "Plaid", ats: ashby, slug: plaid, tier: 2 }
+  - { name: "Pure Storage", ats: greenhouse, slug: purestorage, tier: 2 }
+  - { name: "Quantum", ats: ashby, slug: quantum, tier: 2 }
+  - { name: "Quantum Metric", ats: lever, slug: quantummetric, tier: 2 }
+  - { name: "Qumulo", ats: ashby, slug: qumulo, tier: 2 }
+  - { name: "Ramp", ats: ashby, slug: ramp, tier: 2 }
+  - { name: "Relativity", ats: greenhouse, slug: relativity, tier: 2 }
+  - { name: "Remote", ats: greenhouse, slug: remote, tier: 2 }
+  - { name: "Ro", ats: lever, slug: ro, tier: 2 }
+  - { name: "Rubrik", ats: greenhouse, slug: rubrik, tier: 2 }
+  - { name: "Samsara", ats: greenhouse, slug: samsara, tier: 2 }
+  - { name: "Sardine", ats: ashby, slug: sardine, tier: 2 }
+  - { name: "Sift", ats: ashby, slug: sift, tier: 2 }
+  - { name: "SoFi", ats: greenhouse, slug: sofi, tier: 2 }
+  - { name: "Socure", ats: ashby, slug: socure, tier: 2 }
+  - { name: "Sprig", ats: ashby, slug: sprig, tier: 2 }
+  - { name: "Spring Health", ats: recruitee, slug: spring, tier: 2 }
+  - { name: "Stripe", ats: greenhouse, slug: stripe, tier: 2 }
+  - { name: "Stytch", ats: ashby, slug: stytch, tier: 2 }
+  - { name: "Transmit Security", ats: greenhouse, slug: transmitsecurity, tier: 2 }
+  - { name: "TripActions", ats: greenhouse, slug: tripactions, tier: 2 }
+  - { name: "Twist Bioscience", ats: greenhouse, slug: twistbioscience, tier: 2 }
+  - { name: "Unit", ats: ashby, slug: unit, tier: 2 }
+  - { name: "Unite Us", ats: greenhouse, slug: uniteus, tier: 2 }
+  - { name: "Vast Data", ats: greenhouse, slug: vast, tier: 2 }
+  - { name: "Verkada", ats: greenhouse, slug: verkada, tier: 2 }
+  - { name: "WorkOS", ats: ashby, slug: workos, tier: 2 }
+  - { name: "Yext", ats: greenhouse, slug: yext, tier: 2 }
+  - { name: "Yubico", ats: greenhouse, slug: yubico, tier: 2 }
+  - { name: "Zip", ats: ashby, slug: zip, tier: 2 }
+  - { name: "Zocdoc", ats: greenhouse, slug: zocdoc, tier: 2 }

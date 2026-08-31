@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# Private identity. NEVER commit these.
+#
+# This repo is public. config/identity.yaml holds a real home address, phone
+# number, and EEO answers. The example file is the only version that ships.
+# ---------------------------------------------------------------------------
+config/identity.yaml
+.env
+.env.*
+!.env.example
+*.secrets.yaml
+
+# Generated application material (resumes/cover letters contain the address too)
+out/
+generated/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# identity.example.yaml  --  TEMPLATE ONLY
+#
+# Copy to config/identity.yaml and fill in. identity.yaml is gitignored and
+# must stay that way: this repo is public, and the real file contains a home
+# address and phone number.
+#
+# Nothing in the ingest or filter path reads this file. It is consumed only by
+# the tailoring step, which runs in a private scheduled session and writes its
+# output to Drive -- never back into the repo.
+# ---------------------------------------------------------------------------
+
+name: ""
+email: ""
+phone: ""
+
+street_address: ""
+city: ""
+state: ""
+postal_code: ""
+
+github: ""
+linkedin: ""
+
+# Exact sentence to use when an application asks about authorization.
+work_authorization: ""
+# "yes" / "no" -- many postings hard-filter on this.
+sponsorship_needed: ""
+
+notice_period: "Immediately available"
+desired_salary_answer: "Open, targeting market rate for the role"
+
+# EEO. Blank is a valid answer and is the default.
+veteran_status: ""
+disability_status: ""

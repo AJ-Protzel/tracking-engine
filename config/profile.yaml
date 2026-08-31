@@ -1,0 +1,143 @@
+# ---------------------------------------------------------------------------
+# profile.yaml -- the decision file.
+#
+# Everything tunable lives here. Change behaviour by editing this file, not
+# code. Every value is deliberately visible: the point of the repo is that the
+# ruleset is legible and measurable, not buried in conditionals.
+#
+# Personal identity fields (address, phone, EEO answers) are NOT here. They
+# live in config/identity.yaml, which is gitignored, because this repo is
+# public.
+# ---------------------------------------------------------------------------
+
+geography:
+  remote_us: allow                # slightly preferred
+  allow_states: [CA, WA]
+  deny_states: [OR]
+  deny_metros:
+    - Los Angeles
+    - Long Beach
+    - Burbank
+    - Glendale
+    - Pasadena
+    - Santa Monica
+    - Anaheim
+    - Irvine
+    - Riverside
+    - San Bernardino
+  preferred_metros:               # scoring bonus, not a filter
+    - Sacramento
+    - Folsom
+    - Roseville
+    - El Dorado Hills
+    - San Francisco Bay Area
+    - Seattle
+
+compensation:
+  # Derived floor from fixed monthly obligations. Below this the role does not
+  # cover costs, so it is a hard kill rather than a preference.
+  salary_floor_usd: 55000
+  hourly_floor_w2: 32
+  # California requires pay ranges on postings, so this filter has teeth
+  # in-state. Outside CA most postings omit salary -- do NOT kill those.
+  missing_salary: keep_and_flag
+
+employment_types:
+  allow: [full_time, contract, contract_to_hire]
+  deny: [part_time, internship, unpaid]
+  min_contract_months: 6
+
+volume:
+  # Start small. Raise once queue quality is proven -- that is the whole reason
+  # this is a config value and not a constant.
+  max_queued_per_weekday: 5
+  max_queued_per_week: 25
+  fit_threshold: 8                # 1-10
+  compounding_threshold: 3        # 1-5; a job must clear BOTH
+
+titles:
+  # Tier is a scoring bonus and a queue-balancing hint, not a filter. A title
+  # not listed here can still score well. The buckets exist so the weekly
+  # readout can say which KIND of role is actually replying.
+  tier_1:                         # core data/analytics -- apply heavy
+    - Analytics Engineer
+    - Data Analyst
+    - Business Data Analyst
+    - BI Developer
+    - Power BI Developer
+    - Data Quality Analyst
+    - Data Operations Analyst
+    - Junior Data Engineer
+    - Associate Data Engineer
+    - ETL Developer
+    - Reporting Analyst
+  tier_2:                         # ops + internal tools
+    - Business Systems Analyst
+    - Operations Analyst
+    - Business Operations Analyst
+    - Process Improvement Analyst
+    - Systems Analyst
+    - Internal Tools Engineer
+    - AI Automation Engineer
+    - Automation Specialist
+    - AI Evaluation Specialist
+    - LLM Data Specialist
+    - Implementation Engineer
+    - Implementation Analyst
+  tier_3:                         # platform ladders, credential-gated
+    - Salesforce Administrator
+    - ServiceNow Administrator
+    - Application Support Analyst
+    - Technical Support Engineer
+    - Database Administrator
+    - Data Steward
+  tier_4:                         # public sector + domain-specific
+    - Information Technology Specialist I
+    - Information Technology Associate
+    - IT Specialist (Data Management)
+    - Program Analyst
+    - Research Data Analyst
+    - Clinical Research Data Coordinator
+    - Manufacturing Data Analyst
+    - Quality Data Analyst
+
+soft_flags:
+  # Not killed, but surfaced in the digest with a warning so the posting can be
+  # checked before a queue slot is spent on it.
+  - pattern: '(?i)customer success'
+    note: "Often carries a renewal or expansion quota -- check before applying."
+  - pattern: '(?i)solutions? (engineer|architect)'
+    note: "Sometimes pre-sales with a number attached. Check for quota language."
+  - pattern: '(?i)(consultant|consulting)'
+    note: "Verify it is delivery work, not business development."
+
+# Checked BEFORE hard_kills. These titles contain a killed word but are real,
+# non-quota analyst roles and must survive the filter. Order matters: the
+# override runs first, and a match here stops the kill rules from ever running.
+title_allow_override:
+  - '(?i)\bsales operations (analyst|specialist)\b'
+  - '(?i)\brevenue operations\b'
+  - '(?i)\bsales(force)? (data|reporting|systems) analyst\b'
+  - '(?i)\bsalesforce\b'
+
+hard_kills:
+  title_regex:
+    # seniority
+    - '(?i)\b(senior|sr\.?|staff|principal|lead|manager|director|head of|architect|VP|chief)\b'
+    - '(?i)\b(intern|internship)\b'
+    # sales and quota-carrying. \bsales\b does NOT match "Salesforce".
+    - '(?i)\b(sales|account executive|account manager|business development|BDR|SDR)\b'
+    - '(?i)\b(sales engineer|pre[- ]?sales|inside sales|outside sales|territory|field sales)\b'
+    - '(?i)\b(insurance agent|real estate|realtor|loan officer|leasing (agent|consultant))\b'
+    # food service and retail floor
+    - '(?i)\b(server|waiter|waitress|barista|bartender|barback|host|hostess)\b'
+    - '(?i)\b(line cook|prep cook|cook|dishwasher|busser|food service|kitchen)\b'
+    - '(?i)\b(cashier|bagger|stocker|courtesy clerk|retail associate|store associate|crew member|team member|sales associate)\b'
+  description_regex:
+    - '(?i)\b([5-9]|1[0-9])\+?\s*years'
+    - '(?i)(security clearance|TS/SCI|polygraph|public trust required)'
+    - '(?i)\bPh\.?D\.?\s+(required|degree required)'
+    - '(?i)(commission[- ]only|unpaid|equity[- ]only)'
+    # quota language, which catches sales roles wearing a technical title
+    - '(?i)(sales quota|carry a quota|on[- ]target earnings|\bOTE\b|book of business)'
+    - '(?i)(cold call|prospecting|pipeline generation|close deals|hit your number)'

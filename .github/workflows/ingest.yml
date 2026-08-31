@@ -1,0 +1,58 @@
+name: phase-1a-ingest
+
+# Phase 1a. 05:45 America/Los_Angeles. Cron is fixed UTC, so this is PDT; it
+# needs a one-hour bump when Pacific goes to standard time in November.
+#
+# The schedule is a backstop, not the primary trigger. Actions crons have run
+# up to 9.5 hours late here (scheduled 11:30 UTC, observed 21:04 UTC on
+# 2026-08-27), so phase 1b dispatches this workflow directly at 06:30 PT and
+# waits for it. Whichever fires first wins; the concurrency group below stops
+# them overlapping.
+on:
+  schedule:
+    - cron: "45 12 * * *"
+  workflow_dispatch:
+  # Tests run on every push; the ingest job below is gated so a push never
+  # triggers a real run against the database.
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Run ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: tracking-engine-ingest
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - run: ruff check .
