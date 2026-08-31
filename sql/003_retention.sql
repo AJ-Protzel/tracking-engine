@@ -16,6 +16,7 @@ set search_path = public
 as $$
 declare
   jobs_deleted    int;
+  descs_cleared   int;
   runs_deleted    int;
   actions_deleted int;
   db_bytes        bigint;
@@ -29,6 +30,16 @@ begin
      and not exists (select 1 from applications a where a.job_id = j.id);
   get diagnostics jobs_deleted = row_count;
 
+  -- Scoring a job pins it forever, and the row carries up to 4,000 characters
+  -- of description. At 40 scored a day that is ~58 MB/year of text for postings
+  -- rejected months ago. The score row is the tuning evidence and stays; the
+  -- description is only needed at scoring time, so it goes.
+  update jobs j set description = null
+   where j.description is not null
+     and j.last_seen_at < now() - interval '30 days'
+     and not exists (select 1 from applications a where a.job_id = j.id);
+  get diagnostics descs_cleared = row_count;
+
   delete from phase_runs where started_at < now() - interval '90 days';
   get diagnostics runs_deleted = row_count;
 
@@ -39,6 +50,7 @@ begin
 
   return jsonb_build_object(
     'jobs_deleted',          jobs_deleted,
+    'descriptions_cleared',  descs_cleared,
     'phase_runs_deleted',    runs_deleted,
     'email_actions_deleted', actions_deleted,
     'db_bytes',              db_bytes,

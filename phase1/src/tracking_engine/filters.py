@@ -67,10 +67,13 @@ def title_kill(title: str, profile: dict[str, Any]) -> str | None:
 def description_kill(description: str | None, profile: dict[str, Any]) -> str | None:
     """Return the pattern that kills this description, or None.
 
-    Note the `5+ years` rule will occasionally catch "5 years of combined
-    experience preferred", which is a posting worth seeing. That is a known and
-    accepted false positive; `job_filters.kill_rule` is what makes its real rate
-    measurable so the rule can be loosened with evidence.
+    The years-of-experience rule that used to live here is gone (2026-08-31).
+    `job_filters.kill_rule` made its real cost measurable -- 597 postings in
+    one night, 110 of them analyst-shaped, against 96 analyst-shaped survivors
+    overall -- and that evidence is what retired it. It is a soft flag now.
+
+    This is the loop the kill_rule column exists for: log every rejection,
+    then delete the rules the log convicts.
     """
     if not description:
         return None
@@ -103,7 +106,11 @@ def geography_kill(job: Job, profile: dict[str, Any]) -> str | None:
     location = (job.location_raw or "").strip()
 
     if job.region == "remote-us":
-        return None if geo.get("remote_us") == "allow" else "geography:remote_not_allowed"
+        # Anything but an explicit deny keeps the job. This used to compare
+        # against the literal "allow", which meant setting the value to
+        # "prefer" -- a strictly stronger yes -- killed every remote posting.
+        # A kill switch should require the word that means no.
+        return None if geo.get("remote_us") != "deny" else "geography:remote_not_allowed"
 
     if not location:
         # No location and not flagged remote. Keep it -- the scoring step can

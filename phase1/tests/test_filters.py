@@ -118,27 +118,69 @@ def test_killed_by_hard_filters(posting: Job, expected_prefix: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Known false positive, asserted on purpose
+# The years-of-experience rule, retired 2026-08-31
 # ---------------------------------------------------------------------------
 
-def test_combined_experience_is_a_known_false_positive() -> None:
-    """"5 years of combined experience" is killed today, and that is wrong.
+def test_years_of_experience_no_longer_kills() -> None:
+    """This assertion was written inverted, to flip when the rule was loosened.
 
-    The years-of-experience rule cannot tell "5+ years required" from "5 years
-    of combined experience preferred". It is left broad deliberately, and every
-    kill is logged to `job_filters.kill_rule` so the real rate is measurable.
+    It has flipped. The old test said "5 years of combined experience" is killed
+    and that this is wrong; the kill_rule log then measured how wrong: 597
+    postings in one night, 110 of them analyst-shaped, against 96 analyst-shaped
+    postings surviving the entire filter set. One rule was discarding more
+    relevant work than everything else combined let through.
 
-    This test exists so that loosening the rule is a visible decision -- if it
-    starts passing, someone changed the rule on purpose and this assertion
-    flips with them.
+    A posted "5+ years" is frequently a wish rather than a bar. The requirement
+    is surfaced as a soft flag and folded into the fit score instead.
     """
     posting = job(
         "Data Analyst",
         description="5 years of combined experience across analytics preferred.",
     )
     result = filters.evaluate(posting, PROFILE)
+    assert result.passed
+    assert result.kill_rule is None
+
+
+def test_years_requirement_is_flagged_instead_of_killed() -> None:
+    """Removing the kill must not make the requirement invisible."""
+    posting = job("Data Analyst", description="Requires 7+ years of SQL experience.")
+    assert filters.evaluate(posting, PROFILE).passed
+    flags = filters.soft_flags(posting, PROFILE)
+    assert any("5+ years" in flag for flag in flags), flags
+
+
+def test_active_clearance_kills_but_obtainable_does_not() -> None:
+    """"Ability to obtain a clearance" is a sponsored process, not a barrier.
+
+    The old rule matched the bare phrase "security clearance" anywhere, so a
+    posting offering to sponsor one read identically to a posting demanding one.
+    """
+    demanded = job("Data Analyst", description="Must hold an active security clearance.")
+    result = filters.evaluate(demanded, PROFILE)
     assert not result.passed
-    assert result.kill_rule is not None and result.kill_rule.startswith("description")
+    assert result.kill_rule is not None and "clearance" in result.kill_rule
+
+    offered = job("Data Analyst", description="Must be able to obtain a security clearance.")
+    assert filters.evaluate(offered, PROFILE).passed
+    assert any("obtainable" in flag for flag in filters.soft_flags(offered, PROFILE))
+
+
+def test_remote_survives_any_non_deny_setting() -> None:
+    """A kill switch must require the word that means no.
+
+    `remote_us` was compared against the literal "allow", so changing it to
+    "prefer" -- a strictly stronger yes -- killed every remote posting. Remote is
+    where the entry-level volume is, so that failure would have been expensive
+    and silent.
+    """
+    posting = job("Data Analyst", location="Remote - US")
+    for setting in ("allow", "prefer"):
+        profile = {**PROFILE, "geography": {**PROFILE["geography"], "remote_us": setting}}
+        assert filters.evaluate(posting, profile).passed, setting
+
+    denied = {**PROFILE, "geography": {**PROFILE["geography"], "remote_us": "deny"}}
+    assert not filters.evaluate(posting, denied).passed
 
 
 # ---------------------------------------------------------------------------

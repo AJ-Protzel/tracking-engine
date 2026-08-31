@@ -11,7 +11,10 @@
 # ---------------------------------------------------------------------------
 
 geography:
-  remote_us: allow                # slightly preferred
+  # Remote-US is the PREFERRED outcome, not merely tolerated (2026-08-31).
+  # It is also where entry-level analyst volume actually is, so scoring
+  # ranks a remote posting above an equivalent on-site one, not the reverse.
+  remote_us: prefer
   allow_states: [CA, WA]
   deny_states: [OR]
   deny_metros:
@@ -25,6 +28,13 @@ geography:
     - Irvine
     - Riverside
     - San Bernardino
+  # Ranked, best first. Scoring only -- never used to kill.
+  region_preference:
+    - remote-us
+    - ca-norcal
+    - wa
+    - ca-other
+
   preferred_metros:               # scoring bonus, not a filter
     - Sacramento
     - Folsom
@@ -102,14 +112,19 @@ titles:
     - Quality Data Analyst
 
 soft_flags:
-  # Not killed, but surfaced in the digest with a warning so the posting can be
-  # checked before a queue slot is spent on it.
+  # Not killed, but surfaced with a warning so the posting gets eyes on it
+  # before a queue slot is spent. The last two replace former hard kills:
+  # the point is to inform the decision, not to make it.
   - pattern: '(?i)customer success'
     note: "Often carries a renewal or expansion quota -- check before applying."
   - pattern: '(?i)solutions? (engineer|architect)'
     note: "Sometimes pre-sales with a number attached. Check for quota language."
   - pattern: '(?i)(consultant|consulting)'
     note: "Verify it is delivery work, not business development."
+  - pattern: '(?i)\b([5-9]|1[0-9])\+?\s*years'
+    note: "Asks 5+ years. Was a hard kill until 2026-08-31 -- often a wish, not a bar. Judge it on the rest of the posting."
+  - pattern: '(?i)(able|ability|eligible|willing) to obtain.{0,40}clearance'
+    note: "Clearance is obtainable and sponsored here, not required up front."
 
 # Checked BEFORE hard_kills. These titles contain a killed word but are real,
 # non-quota analyst roles and must survive the filter. Order matters: the
@@ -134,8 +149,23 @@ hard_kills:
     - '(?i)\b(line cook|prep cook|cook|dishwasher|busser|food service|kitchen)\b'
     - '(?i)\b(cashier|bagger|stocker|courtesy clerk|retail associate|store associate|crew member|team member|sales associate)\b'
   description_regex:
-    - '(?i)\b([5-9]|1[0-9])\+?\s*years'
-    - '(?i)(security clearance|TS/SCI|polygraph|public trust required)'
+    # NO years-of-experience kill. Removed 2026-08-31, deliberately.
+    #
+    # It was the most expensive rule in this file. Measured against one
+    # real night: it killed 597 postings, 110 of them analyst-shaped --
+    # while only 96 analyst-shaped postings survived the whole filter set.
+    # One rule was discarding more relevant work than everything else
+    # combined let through.
+    #
+    # A posted '5+ years' is frequently a wish rather than a bar. Adrien
+    # decides what to stretch for; the requirement is surfaced as a soft
+    # flag and folded into the fit score instead of foreclosing the job.
+    #
+    # Clearance: only an ACTIVE one disqualifies. 'Ability to obtain a
+    # security clearance' is a sponsored process and a perfectly
+    # applicable posting, so it must not match here.
+    - '(?i)(active|current|existing)\s+(ts/sci|top secret|secret|security clearance)'
+    - '(?i)(TS/SCI|polygraph)'
     - '(?i)\bPh\.?D\.?\s+(required|degree required)'
     - '(?i)(commission[- ]only|unpaid|equity[- ]only)'
     # quota language, which catches sales roles wearing a technical title
