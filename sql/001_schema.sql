@@ -228,6 +228,8 @@ create table if not exists transactions (
   amount      numeric(12,2) not null,
   direction   text not null check (direction in ('in','out')),
   source      text not null default 'email' check (source in ('email','csv','manual')),
+  wedding     bool not null default false,    -- surfaced for the wedding sheet
+  notes       text,
   external_id text unique,                    -- makes re-imports idempotent
   created_at  timestamptz not null default now()
 );
@@ -243,6 +245,7 @@ create table if not exists email_actions (
                   check (action in ('labeled','drafted','trashed','spam_rescued','blocked','skipped')),
   label           text,
   subject_snippet text,
+  note            text,                       -- newsletter gist, draft From address
   acted_at        timestamptz not null default now()
 );
 create index if not exists email_actions_acted_idx on email_actions (acted_at desc);
@@ -275,6 +278,15 @@ create table if not exists calendar_intents (
   created_at      timestamptz not null default now(),
   drained_at      timestamptz,
   unique (gmail_thread_id, title, starts_at)
+);
+
+-- Wedding vendor names live in the database, not in config/, because this repo
+-- is public and a vendor list is a map of a private life. Phase 2 reads it to
+-- decide whether a transaction is wedding-related.
+create table if not exists wedding_vendors (
+  name       text primary key,
+  note       text,
+  created_at timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------
@@ -322,5 +334,6 @@ alter table transactions          enable row level security;
 alter table email_actions         enable row level security;
 alter table blocklist             enable row level security;
 alter table calendar_intents      enable row level security;
+alter table wedding_vendors       enable row level security;
 alter table nutrition_items       enable row level security;
 alter table food_log              enable row level security;

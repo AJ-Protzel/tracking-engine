@@ -1,10 +1,11 @@
 # Phase 1b — score and prepare
 
-The prompt for the 6:30am PT weekday cloud routine. Source of truth: edit here,
+The prompt for the 6:30am PT daily cloud routine. Source of truth: edit here,
 commit, then paste into the routine.
 
-Cron is fixed UTC — `30 13 * * 1-5` is 6:30am PDT and needs a one-hour bump in
-November.
+Cron is fixed UTC — `30 13 * * *` is 6:30am PDT and needs a one-hour bump in
+November. Daily rather than weekdays: postings appear on weekends, and the
+backlog means a quiet day costs nothing anyway.
 
 ---
 
@@ -187,41 +188,74 @@ values (123, 8, 4, 'data_analyst', 'verdict...', 'builds...', 'concerns...', '{}
 on conflict (job_id) do nothing;
 ```
 
-## Step 5 — queue what clears both bars
+## Step 5 — queue everything that clears both bars
 
-`fit >= 8 AND compounding >= 3`. At most **5 new queued jobs per day** and 25 per
-week. Fewer than 5 is fine and expected; do not reach down the list to fill the
-quota.
-
-```sql
-select count(*) from applications
- where status = 'queued' and queued_at >= date_trunc('week', now());
-```
-
-If more than 5 clear both bars, take highest fit first, ties broken on
-compounding. Then:
+`fit >= 8 AND compounding >= 3`. **No cap.** The queue is a backlog, not a daily
+batch: a good night should bank a week of work so a thin night costs nothing.
 
 ```sql
 insert into applications (job_id, status) values (123, 'queued'), (...)
 on conflict (job_id) do nothing;
 ```
 
-Everything scored that did not queue stays scored with no application row. That
-is intentional — the scores are the evidence the thresholds get tuned against.
+The 5-a-day limit is applied in Step 6, where letters are written — not here.
+Queueing is cheap; letter-writing is not, and a letter written for a job he will
+not reach for eight days is usually wasted.
+
+Everything scored that did not clear both bars stays scored with no application
+row. That is intentional — the scores are the evidence the thresholds get tuned
+against.
 
 If nothing clears both bars, that is a real signal. **Do not lower the bar to
 manufacture a queue.** Record the highest fit you actually saw in the run summary
 so the threshold can be judged against evidence.
 
-## Step 6 — one cover letter per queued job
+### Backlog depth
+
+```sql
+select count(*) from applications where status = 'queued';
+```
+
+Healthy is 15 or more — three days of runway. Below 10, note it in the run
+summary so phase 3 can say the backlog is thinning; that is a signal the
+employer list needs widening, **not** a reason to lower the thresholds.
+
+## Step 6 — prepare today's five
+
+This is where the daily limit lives. Take **at most 5** queued jobs that have no
+cover letter yet, skipping anything that looks closed:
+
+```sql
+select application_id, id as job_id, company, title, location_raw, apply_url,
+       fit, compounding, verdict, description
+  from v_queue_live
+ where cover_url is null and not likely_closed
+ order by fit desc, compounding desc, queued_at asc
+ limit 5;
+```
+
+`likely_closed` means phase 1a has not seen the posting on its board in 7 days,
+which almost always means it is filled. Retire those rather than showing him a
+dead link:
+
+```sql
+update applications a set status = 'skipped',
+       skip_reason = 'posting_closed: not seen since ' || j.last_seen_at::date
+  from jobs j
+ where j.id = a.job_id and a.status = 'queued' and a.cover_url is null
+   and j.last_seen_at < now() - interval '7 days';
+```
+
+Fewer than 5 available is fine. Do not reach past the bars to fill the number.
 
 Cover letters only. Do NOT generate a tailored resume — Adrien attaches one
 master resume himself, and a per-job PDF breaks Simplify Copilot's stored-resume
 autofill.
 
 Find or create today's folder in Drive. Search first:
-`title = '<TODAY>' and parentId = '<TRACKING_ENGINE_FOLDER_ID>'`. If absent,
-create it with mimeType `application/vnd.google-apps.folder`.
+`title = '<TODAY>' and parentId = '1G3tNaQ1wsCtjgh_nTEUZz0Y7XJES0FXs'` (the
+**Cover Letters** folder). If absent, create it there with mimeType
+`application/vnd.google-apps.folder`.
 
 Each letter is about 120 words and must:
 
@@ -257,14 +291,15 @@ how this gets unusable by December.
 
 ```sql
 update phase_runs set finished_at = now(), status = 'ok',
-  counts = '{"scored": N, "queued": N, "cover_letters": N, "max_fit": N}'::jsonb,
+  counts = '{"scored": N, "queued": N, "cover_letters": N, "max_fit": N, "backlog": N, "retired_closed": N}'::jsonb,
   summary = '{"skipped_high_fit_low_compounding": [...], "closest_misses": [...], "failures": [...]}'::jsonb
 where id = <run id>;
 ```
 
 `summary` is what phase 3 renders, so put in it what Adrien should see: jobs held
 back on compounding despite high fit, the closest misses if fewer than three
-queued, and anything that failed. Set `status = 'failed'` with the error text in
+queued, postings retired as closed, whether the backlog is thinning, and anything
+that failed. Set `status = 'failed'` with the error text in
 `error` if the run broke partway.
 
 ## Standing rules
