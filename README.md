@@ -164,8 +164,24 @@ A real run needs `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`. In CI they are repo
 secrets, and the ingest job is gated to `schedule` and `workflow_dispatch` so a
 push never writes to the database or needs them.
 
-Schema lives in `sql/`. Routine prompts — the non-Python phases — live in
-`routines/`, in version control rather than only inside the scheduler.
+## Layout
+
+One folder per phase, so a phase can be debugged, upgraded, or rewritten without
+reading the others. Each has a README explaining what it does and what must not
+be undone.
+
+```
+phase1/   extract  — ingest (Python, Actions) + the scoring routine
+phase2/   email    — inbox sweep + calendar drain
+phase3/   present  — the morning report
+config/   shared   — filters and thresholds (public), identity (gitignored)
+sql/      shared   — schema, the one-time migration, retention
+```
+
+Phases 2 and 3 are prompts rather than Python: they run as scheduled cloud
+sessions with the Gmail, Drive, and Calendar connectors. Those prompts are kept
+in version control rather than only inside the scheduler, where a bad edit is
+unrecoverable and nothing records what changed.
 
 ## License
 

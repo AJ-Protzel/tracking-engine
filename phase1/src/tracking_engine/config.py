@@ -14,7 +14,23 @@ from typing import Any
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+
+def _find_repo_root() -> Path:
+    """Walk up until the shared config directory turns up.
+
+    Counting parents broke the moment this package moved into phase1/. Looking
+    for a landmark survives the next reorganization too, and config/ is shared
+    by every phase so it will not move without the whole repo moving.
+    """
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "config" / "profile.yaml").is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"config/profile.yaml not found above {Path(__file__).resolve()}"
+    )
+
+
+REPO_ROOT = _find_repo_root()
 CONFIG_DIR = REPO_ROOT / "config"
 
 

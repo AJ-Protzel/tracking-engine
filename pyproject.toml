@@ -31,11 +31,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["phase1/src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["phase1/tests"]
+pythonpath = ["phase1/src"]
 
 [tool.ruff]
 line-length = 100

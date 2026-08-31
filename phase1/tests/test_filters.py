@@ -12,7 +12,6 @@ digest.
 from __future__ import annotations
 
 import pytest
-
 from tracking_engine import filters, normalize
 from tracking_engine.config import load_profile
 from tracking_engine.models import Job
