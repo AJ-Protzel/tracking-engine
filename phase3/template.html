@@ -1,0 +1,421 @@
+<title>Tracking Engine Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+/* Blue hour into first light: cool slate ground, one sunrise amber for the
+   things he has to act on. Semantic colors stay separate from that accent. */
+:root{
+  --paper:#e9edf2;
+  --card:#ffffff;
+  --sunk:#f2f5f8;
+  --ink:#111924;
+  --ink-2:#445366;
+  --ink-3:#78889b;
+  --line:#d4dce6;
+  --line-2:#e4eaf1;
+  --accent:#9a6410;
+  --accent-soft:#f6ecd8;
+  --ok:#2f6b4a;
+  --ok-soft:#dcece3;
+  --warn:#8f6410;
+  --warn-soft:#f7edd6;
+  --bad:#a03a2c;
+  --bad-soft:#f7e3df;
+  --idle:#6b7a8d;
+  --idle-soft:#e6ebf1;
+  --shadow:0 1px 2px rgba(17,25,36,.05),0 10px 28px -20px rgba(17,25,36,.4);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0c1218;
+    --card:#141c25;
+    --sunk:#0f1720;
+    --ink:#e7edf5;
+    --ink-2:#a9b8c9;
+    --ink-3:#78889b;
+    --line:#26313d;
+    --line-2:#1c252f;
+    --accent:#e0a94e;
+    --accent-soft:#2c2415;
+    --ok:#6fbf90;
+    --ok-soft:#17281f;
+    --warn:#dcac4d;
+    --warn-soft:#2a2315;
+    --bad:#e08573;
+    --bad-soft:#2c1c19;
+    --idle:#8496a9;
+    --idle-soft:#1b232d;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0c1218;
+  --card:#141c25;
+  --sunk:#0f1720;
+  --ink:#e7edf5;
+  --ink-2:#a9b8c9;
+  --ink-3:#78889b;
+  --line:#26313d;
+  --line-2:#1c252f;
+  --accent:#e0a94e;
+  --accent-soft:#2c2415;
+  --ok:#6fbf90;
+  --ok-soft:#17281f;
+  --warn:#dcac4d;
+  --warn-soft:#2a2315;
+  --bad:#e08573;
+  --bad-soft:#2c1c19;
+  --idle:#8496a9;
+  --idle-soft:#1b232d;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:680px;margin:0 auto;padding:0 16px 64px}
+
+/* ---------- masthead ---------- */
+header.top{
+  padding:28px 0 18px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+h1{
+  font-family:"Bricolage Grotesque","Public Sans",sans-serif;
+  font-weight:800;
+  font-size:clamp(28px,7vw,38px);
+  line-height:1.02;
+  letter-spacing:-.02em;
+  margin:0;
+  text-wrap:balance;
+}
+.date{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:13px;
+  color:var(--ink-3);
+  letter-spacing:.02em;
+  margin-top:6px;
+}
+.pulse{display:flex;gap:5px;align-items:center}
+.dot{
+  width:9px;height:9px;border-radius:50%;
+  background:var(--idle);
+  box-shadow:0 0 0 3px var(--idle-soft);
+}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.dot.bad{background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+.pulse-label{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;color:var(--ink-3);margin-left:6px;
+  text-transform:uppercase;letter-spacing:.08em;
+}
+
+/* ---------- cards ---------- */
+main{display:flex;flex-direction:column;gap:14px}
+section.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.card-head{
+  display:flex;align-items:center;gap:10px;
+  padding:15px 18px;
+  border-bottom:1px solid var(--line-2);
+}
+.card.empty .card-head{border-bottom:none}
+h2{
+  font-family:"Bricolage Grotesque","Public Sans",sans-serif;
+  font-size:16px;font-weight:700;letter-spacing:-.01em;
+  margin:0;flex:1;
+}
+.count{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;font-weight:500;
+  padding:3px 9px;border-radius:999px;
+  background:var(--sunk);color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+.count.act{background:var(--accent-soft);color:var(--accent)}
+.card-body{padding:16px 18px}
+.empty-note{
+  padding:0 18px 16px;
+  color:var(--ink-3);font-size:14px;
+}
+.empty-note code{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--ink-3);
+}
+
+/* ---------- job rows ---------- */
+.job{
+  display:flex;flex-direction:column;gap:6px;
+  padding:14px 0;border-bottom:1px solid var(--line-2);
+}
+.job:first-child{padding-top:0}
+.job:last-child{border-bottom:none;padding-bottom:0}
+.job-title{font-weight:600;font-size:16px;line-height:1.3}
+.job-meta{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--ink-3);
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+}
+.score{color:var(--accent);font-weight:700}
+.verdict{color:var(--ink-2);font-size:14px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+a.btn{
+  display:inline-block;text-decoration:none;
+  font-size:13px;font-weight:600;
+  padding:8px 14px;border-radius:8px;
+  border:1px solid var(--line);
+  color:var(--ink);background:var(--sunk);
+  min-height:38px;line-height:22px;
+}
+/* White on the light amber, near-black on the brighter dark-theme amber:
+   the accent changes value between themes, so the text on it has to too. */
+a.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) a.btn.primary{color:#14202b}
+}
+:root[data-theme="dark"] a.btn.primary{color:#14202b}
+a.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- needs-you list ---------- */
+ul.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+ul.todo li{display:flex;gap:10px;align-items:flex-start;font-size:15px}
+.tag{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:.07em;
+  padding:3px 7px;border-radius:5px;flex:none;margin-top:2px;
+  background:var(--warn-soft);color:var(--warn);
+}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{
+  text-align:left;font-weight:600;font-size:11px;
+  text-transform:uppercase;letter-spacing:.07em;
+  color:var(--ink-3);padding:0 12px 8px 0;white-space:nowrap;
+}
+td{
+  padding:8px 12px 8px 0;border-top:1px solid var(--line-2);
+  white-space:nowrap;
+}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;
+  font-family:"JetBrains Mono",ui-monospace,monospace;padding-right:0}
+th:last-child,td:last-child{padding-right:0}
+
+/* ---------- system strip ---------- */
+.phases{display:flex;flex-direction:column;gap:0}
+.phase{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 0;border-top:1px solid var(--line-2);
+  font-size:14px;
+}
+.phase:first-child{border-top:none;padding-top:0}
+.phase-name{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--ink-2);width:132px;flex:none;
+}
+.phase-state{flex:1;color:var(--ink-3);font-size:13px}
+.badge{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:.07em;
+  padding:3px 8px;border-radius:999px;flex:none;
+}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.idle{background:var(--idle-soft);color:var(--idle)}
+.badge.bad{background:var(--bad-soft);color:var(--bad)}
+
+footer{
+  margin-top:26px;padding-top:16px;border-top:1px solid var(--line);
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;color:var(--ink-3);line-height:1.7;
+}
+@media (prefers-reduced-motion:no-preference){
+  section.card{transition:box-shadow .2s ease}
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Morning Brief</h1>
+    <div class="date">Monday, August 31 2026 &middot; 08:30 PT</div>
+  </div>
+  <div class="pulse" title="Phase health">
+    <span class="dot ok"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="pulse-label">1 of 5</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ APPLY TODAY ============ -->
+  <section class="card empty">
+    <div class="card-head">
+      <h2>Apply today</h2>
+      <span class="count">0</span>
+    </div>
+    <p class="empty-note">
+      Nothing prepared yet — phase 1b has not run. 518 postings cleared the
+      filters last night and are waiting to be scored.
+    </p>
+  </section>
+
+  <!-- ============ NEEDS YOU ============ -->
+  <section class="card empty">
+    <div class="card-head">
+      <h2>Needs you</h2>
+      <span class="count">0</span>
+    </div>
+    <p class="empty-note">
+      Drafts to send, wedding payments to log, flagged mail, and calendar items
+      missing a time all land here. Nothing today.
+    </p>
+  </section>
+
+  <!-- ============ MONEY ============ -->
+  <section class="card empty">
+    <div class="card-head">
+      <h2>Money</h2>
+      <span class="count">0</span>
+    </div>
+    <p class="empty-note">
+      No transactions recorded. This fills from Money In and Money Out mail once
+      phase 2 runs, and only catches what emails a receipt — it is not a
+      complete picture of your accounts, and will not be until a real account
+      feed replaces it.
+    </p>
+  </section>
+
+  <!-- ============ INBOX ============ -->
+  <section class="card empty">
+    <div class="card-head">
+      <h2>Inbox</h2>
+      <span class="count">did not run</span>
+    </div>
+    <p class="empty-note">
+      Phase 2 has never run. When it does, this shows what was labeled, drafted,
+      and trashed — and says <em>nothing changed</em> on a quiet day, which is a
+      different thing from not running at all.
+    </p>
+  </section>
+
+  <!-- ============ FOOD ============ -->
+  <section class="card empty">
+    <div class="card-head">
+      <h2>Food</h2>
+      <span class="count">7 days</span>
+    </div>
+    <p class="empty-note">
+      No entries in the new database yet. The old food tracker is still writing
+      to the previous project until cutover.
+    </p>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Pipeline</h2>
+      <span class="count">10,278 live</span>
+    </div>
+    <div class="card-body">
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th class="num">Count</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Fetched</td><td class="num">10,469</td><td>7 sources</td></tr>
+            <tr><td>Deduped</td><td class="num">10,278</td><td>191 cross-source dupes</td></tr>
+            <tr><td>Passed filters</td><td class="num">518</td><td>5.0%</td></tr>
+            <tr><td>Scored</td><td class="num">0</td><td>awaiting 1b</td></tr>
+            <tr><td>Backlog</td><td class="num">0</td><td>target 15+</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tablewrap" style="margin-top:18px">
+        <table>
+          <thead>
+            <tr><th>Top kill rules</th><th class="num">Killed</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Seniority in title</td><td class="num">6,129</td></tr>
+            <tr><td>Outside CA / WA / remote</td><td class="num">1,656</td></tr>
+            <tr><td>Sales &amp; quota titles</td><td class="num">1,060</td></tr>
+            <tr><td>LA basin metros</td><td class="num">175</td></tr>
+            <tr><td>Internships</td><td class="num">36</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SYSTEM ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>System</h2>
+      <span class="count">11 MB / 500</span>
+    </div>
+    <div class="card-body">
+      <div class="phases">
+        <div class="phase">
+          <span class="phase-name">1a ingest</span>
+          <span class="phase-state">ran 07:29, took 3m39s</span>
+          <span class="badge ok">ok</span>
+        </div>
+        <div class="phase">
+          <span class="phase-name">1b score</span>
+          <span class="phase-state">never run</span>
+          <span class="badge idle">idle</span>
+        </div>
+        <div class="phase">
+          <span class="phase-name">2 email</span>
+          <span class="phase-state">never run</span>
+          <span class="badge idle">idle</span>
+        </div>
+        <div class="phase">
+          <span class="phase-name">2b calendar</span>
+          <span class="phase-state">waiting on calendars</span>
+          <span class="badge idle">idle</span>
+        </div>
+        <div class="phase">
+          <span class="phase-name">3 report</span>
+          <span class="phase-state">built this page</span>
+          <span class="badge ok">ok</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Built 2026-08-31 from 15 tables.<br>
+  A card that says <em>nothing changed</em> means its phase ran and found
+  nothing. A card that says <em>did not run</em> means the phase never fired.
+  Those are different problems.
+</footer>
+
+</div>

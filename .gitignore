@@ -31,3 +31,6 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Generated documents kept for reference, not build inputs
+!phase3/*.docx
