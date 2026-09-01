@@ -196,9 +196,16 @@ on conflict (gmail_thread_id, title, starts_at) do nothing;
   the report will show it as needing his attention.
 - **Always fill `location` with a full address** for anything he has to travel
   to.
-- Route by content: doctor, dentist, therapy, labs → `Health`. Interviews,
-  recruiter calls, work meetings → `Work`. Wedding-related → `Wedding`.
-  Birthdays → `Birthday`. Holidays → `Holiday`. **When nothing fits, `Claude`.**
+- Route by content, using Adrien's own definitions rather than what the names
+  suggest:
+  - `Health` — doctor, dentist, therapy, labs, **and the vet**
+  - `Work` — interviews, recruiter calls, work meetings
+  - `Wedding` — anything wedding-related
+  - `Holiday` — **his own vacations, PTO, and time off**, not public holidays
+  - `Claude` — misc and last resort. Note this is his primary calendar, so
+    anything sent here lands among his existing personal events. Prefer a
+    specific calendar whenever one fits.
+  - There is no Birthday calendar yet; birthdays go to `Claude`.
 
 ## Step 5 — draft replies (Needs Response only)
 

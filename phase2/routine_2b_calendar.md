@@ -6,9 +6,16 @@ commit, then paste into the routine.
 Cron is fixed UTC — `45 14 * * *` is 7:45am PDT and needs a one-hour bump in
 November.
 
-**This routine is inert until the Google calendars exist.** That is fine and
-expected: intents queue in the table and drain on the first run after the
-calendars appear. Do not treat an empty calendar list as a failure.
+The calendars exist as of 2026-09-01 and are shared with Ashley. Verified by
+creating one test event on each.
+
+**There is no Birthday calendar** — five were created, not six. Route birthdays
+to `Claude` until one exists.
+
+**`Claude` is Adrien's PRIMARY calendar, renamed** (`ajprotzel@gmail.com`), not a
+separate one. Anything routed there lands among his existing personal events, so
+prefer a specific calendar whenever one fits and treat `Claude` as a genuine last
+resort.
 
 ---
 
@@ -32,25 +39,25 @@ Close it in Step 4 on every exit path.
 
 ## Step 2 — resolve the calendars
 
-`list_calendars` once. Map each name to its id:
+These ids are fixed. Use them directly; only call `list_calendars` if one
+errors. The descriptions are Adrien's own — route by what he wrote, not by what
+the name suggests.
 
-| Intent value | Calendar |
-|---|---|
-| `Work` | interviews, recruiter calls, work meetings |
-| `Health` | doctor, dentist, therapy, labs |
-| `Holiday` | holidays and observances |
-| `Wedding` | anything wedding-related |
-| `Birthday` | birthdays |
-| `Claude` | fallback when nothing else fits |
+| Intent | Calendar id | What he uses it for |
+|---|---|---|
+| `Work` | `bd9038c60b5b6fc176f0e7b1df362ea0367dafa858f0a26fc8c6b8436e19365b@group.calendar.google.com` | job or work related events |
+| `Health` | `0c58d454b672bb5b1708d59d0927f5ad7992674854b28d1a973fc9fc80e159a3@group.calendar.google.com` | doctor **and vet** appointments |
+| `Wedding` | `3ee673cfa525faf0ce90ff57304db86356f6c763103513a7602c891b9dc458a2@group.calendar.google.com` | wedding events and tasks |
+| `Holiday` | `02f075ecf07b6d126c85d9f0f3ad007a17103f2408bfdf9cc9656fe3ba409d24@group.calendar.google.com` | **personal vacations, PTO, time off** — not public holidays |
+| `Claude` | `ajprotzel@gmail.com` | misc, and the fallback. His primary calendar |
 
-If a named calendar does not exist, do not create the event and do not
-substitute a different calendar — leave the intent `pending` and record the
-missing name in the summary. Substituting silently puts a colonoscopy on the
-Wedding calendar, which is worse than waiting.
+Two of those are easy to get wrong. `Holiday` is time off he is taking, so a
+public holiday is not a Holiday event. `Health` covers the vet as well as the
+doctor, so a pet appointment goes there rather than to `Claude`.
 
-If **no** calendars beyond the default exist yet, close the run with
-`status = 'skipped'` and a note. That is the expected state until Adrien sets
-them up.
+If a named calendar errors, do not substitute a different one — leave the intent
+`pending` and record it in the summary. Silently substituting puts a colonoscopy
+on the Wedding calendar, which is worse than waiting.
 
 ## Step 3 — drain
 
