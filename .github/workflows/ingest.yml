@@ -1,16 +1,20 @@
 name: phase-1a-ingest
 
-# Phase 1a. 05:45 America/Los_Angeles. Cron is fixed UTC, so this is PDT; it
-# needs a one-hour bump when Pacific goes to standard time in November.
+# Phase 1a. 01:00 America/Los_Angeles, deliberately early.
 #
-# The schedule is a backstop, not the primary trigger. Actions crons have run
-# up to 9.5 hours late here (scheduled 11:30 UTC, observed 21:04 UTC on
-# 2026-08-27), so phase 1b dispatches this workflow directly at 06:30 PT and
-# waits for it. Whichever fires first wins; the concurrency group below stops
-# them overlapping.
+# The plan was for phase 1b to dispatch this directly at 06:30 PT rather than
+# trust the scheduler, because Actions crons have run up to 9.5 hours late here
+# (scheduled 11:30 UTC, observed 21:04 UTC on 2026-08-27). That turned out not
+# to be possible: 1b runs in a sandbox with no authenticated `gh`, so it cannot
+# dispatch anything.
+#
+# So the schedule absorbs the lateness instead. Firing at 01:00 PT leaves five
+# and a half hours of slack before 1b needs the data at 06:30, which covers the
+# worst delay actually observed. If a run lands after 1b, the backlog carries
+# that morning and the postings get scored the next day.
 on:
   schedule:
-    - cron: "45 12 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
   # Tests run on every push; the ingest job below is gated so a push never
   # triggers a real run against the database.
