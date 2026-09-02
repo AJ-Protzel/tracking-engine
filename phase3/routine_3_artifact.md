@@ -111,7 +111,10 @@ System were cut deliberately, along with the phase-health dots in the masthead.
      purpose and should see the gap before he spends an hour on the form.
    - **one sentence on what the role expects him to do.** Not why it scores well
      — he does not need the sales pitch, he needs to know what the job is.
-   - two buttons: Apply (the ATS link) and Cover letter (the Doc).
+   - two buttons: Apply (the ATS link) and Cover letter, which always points at
+     the one master letter — `https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit`.
+     There are no per-job letters as of 2026-09-02; he tweaks the master in
+     Simplify himself.
    No fit/compounding scores, no location, no backlog age, and **no list of the
    backlog beyond today's five** — his call, 2026-09-02.
 4. **Requires Action** — the only card standing between him and a missed reply,

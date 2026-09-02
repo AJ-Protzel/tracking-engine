@@ -230,12 +230,11 @@ employer list needs widening, **not** a reason to lower the thresholds.
 
 ## Step 6 — prepare today's five
 
-This is where the daily limit lives. Take **at most 5** queued jobs that have no
-cover letter yet, skipping anything that looks closed:
+Take **at most 5** queued jobs not yet marked prepared, skipping anything that
+looks closed:
 
 ```sql
-select application_id, id as job_id, company, title, location_raw, apply_url,
-       fit, compounding, verdict, description
+select application_id, id as job_id, company, title, apply_url, fit, compounding, verdict
   from v_queue_live
  where cover_url is null and not likely_closed
  order by fit desc, compounding desc, queued_at asc
@@ -243,8 +242,8 @@ select application_id, id as job_id, company, title, location_raw, apply_url,
 ```
 
 `likely_closed` means phase 1a has not seen the posting on its board in 7 days,
-which almost always means it is filled. Retire those rather than showing him a
-dead link:
+which almost always means it is filled. Retire those rather than showing a dead
+link:
 
 ```sql
 update applications a set status = 'skipped',
@@ -256,50 +255,32 @@ update applications a set status = 'skipped',
 
 Fewer than 5 available is fine. Do not reach past the bars to fill the number.
 
-Cover letters only. Do NOT generate a tailored resume — Adrien attaches one
-master resume himself, and a per-job PDF breaks Simplify Copilot's stored-resume
-autofill.
+### Do NOT write cover letters
 
-Find or create today's folder in Drive. Search first:
-`title = '<TODAY>' and parentId = '1G3tNaQ1wsCtjgh_nTEUZz0Y7XJES0FXs'` (the
-**Cover Letters** folder). If absent, create it there with mimeType
-`application/vnd.google-apps.folder`.
-
-Each letter is about 120 words and must:
-
-- name ONE specific, verifiable thing from that job description — a named tool, a
-  named team, a stated problem. Generic praise for the company reads as a form
-  letter and is worthless.
-- connect it to ONE concrete thing from the background block.
-- use only facts from that block. If the posting wants something he does not
-  have, write a weaker letter. Never a new claim.
-- never state a salary figure, never mention other applications, never apologize
-  for his experience level.
-- close by saying he is available to talk. No "I would be thrilled" filler.
-
-Save each with `create_file`, `textContent` = the letter, contentMimeType
-`text/plain`, parentId = today's folder, title exactly
-`Cover Letter - <Company> - <Job Title>` with `/ \ : * ? " < >` stripped. Leave
-conversion on so it lands as an editable Google Doc.
+Changed 2026-09-02, at Adrien's direction. He uses **one master cover letter**
+and tweaks it himself in Simplify, which is what that tool is built to do. Point
+every prepared application at it:
 
 ```sql
-update applications set cover_url = 'https://docs.google.com/document/d/<file id>/edit'
- where job_id = 123;
+update applications set cover_url = 'https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit'
+ where job_id in (...);
 ```
 
-A Drive failure gets one retry. If it fails again, leave the job queued with a
-null `cover_url`, note it in the run summary, and keep going — a missing cover
-letter must never block the rest of the run.
+Master letter: `https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit`
 
-**Then rotate the folders.** Move yesterday's dated folder into the `old/`
-subfolder, and trash anything in `old/` older than 30 days. Unbounded folders are
-how this gets unusable by December.
+Do not generate per-job letters, do not create dated Drive folders, and do not
+touch Drive at all — this phase no longer needs the connector. Four bespoke
+letters a day that get rewritten before sending were work nobody used.
+
+If he ever asks for per-job letters again, the rules that governed them are in
+git history: ~120 words, name one specific verifiable thing from the posting,
+connect it to one concrete thing from his background, and never invent a fact.
 
 ## Step 7 — close the run row
 
 ```sql
 update phase_runs set finished_at = now(), status = 'ok',
-  counts = '{"scored": N, "queued": N, "cover_letters": N, "max_fit": N, "backlog": N, "retired_closed": N}'::jsonb,
+  counts = '{"scored": N, "queued": N, "prepared": N, "max_fit": N, "backlog": N, "retired_closed": N}'::jsonb,
   summary = '{"skipped_high_fit_low_compounding": [...], "closest_misses": [...], "failures": [...]}'::jsonb
 where id = <run id>;
 ```
