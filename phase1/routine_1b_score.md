@@ -224,9 +224,15 @@ so the threshold can be judged against evidence.
 select count(*) from applications where status = 'queued';
 ```
 
-Healthy is 15 or more — three days of runway. Below 10, note it in the run
-summary so phase 3 can say the backlog is thinning; that is a signal the
-employer list needs widening, **not** a reason to lower the thresholds.
+Do **not** surface this to him — he does not want queue-health commentary in
+the report (2026-09-02). It is for tuning only, and it belongs in the run summary
+where only a person debugging the system will read it.
+
+If the backlog grows large, re-rank rather than letting it sprawl: highest fit
+first, and treat age as staleness. A posting first seen weeks ago and still open
+is usually not being filled with any urgency, so it should fall behind a fresh
+one of equal fit. `v_queue_live` already retires anything phase 1a has stopped
+seeing entirely.
 
 ## Step 6 — prepare today's five
 

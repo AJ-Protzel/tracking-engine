@@ -67,14 +67,17 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
 
 /* money: three figures, colored by direction */
 .money{display:flex;gap:10px}
-.fig{flex:1;border-radius:10px;padding:12px 14px;background:var(--sunk)}
+.fig{flex:1;min-width:0;border-radius:10px;padding:11px 10px;background:var(--sunk)}
 .fig.in{background:var(--in-soft)}
 .fig.out{background:var(--out-soft)}
 .fig-label{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;
   text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
-.fig-val{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:19px;
+/* Sized to fit three figures across a phone without wrapping. A wrapped
+   currency value reads as two numbers, which is worse than a small one. */
+.fig-val{font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:clamp(13px,4.1vw,19px);
   font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;
-  letter-spacing:-.02em}
+  letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fig.in .fig-val{color:var(--in)}
 .fig.out .fig-val{color:var(--out)}
 .fig.net .fig-val{color:var(--ink)}
@@ -141,8 +144,7 @@ ul.todo a{color:var(--accent)}
   <!-- ============ MONEY ============ -->
   <section class="card">
     <div class="card-head">
-      <h2>Money</h2>
-      <span class="count">September</span>
+      <h2>Money — September</h2>
     </div>
     <div class="card-body">
       <div class="money">
@@ -159,8 +161,6 @@ ul.todo a{color:var(--accent)}
           <div class="fig-val">−$1,600.11</div>
         </div>
       </div>
-      <p class="caveat">One transaction so far this month. This only sees what
-        emails a receipt, so it is not a full picture of your accounts.</p>
     </div>
   </section>
 
@@ -198,7 +198,7 @@ ul.todo a{color:var(--accent)}
 
       <div class="job">
         <div class="job-title">Analyst — Affirm</div>
-        <div class="pay">Pay not stated</div>
+        <div class="pay">Est. $75k/yr</div>
         <p class="expects">Entry-level Analyst I on the Risk &amp; Analytics team:
           quantitative work on approval, conversion, and loss optimization.</p>
         <div class="actions">
@@ -208,7 +208,7 @@ ul.todo a{color:var(--accent)}
 
       <div class="job">
         <div class="job-title">Data Analyst, Pricing — SoFi</div>
-        <div class="pay">Pay not stated · asks 4+ yrs financial services</div>
+        <div class="pay">Est. $95k/yr · asks 4+ yrs financial services</div>
         <p class="expects">Validation work and Tableau dashboards supporting
           pricing decisions.</p>
         <div class="actions">
@@ -218,7 +218,7 @@ ul.todo a{color:var(--accent)}
 
       <div class="job">
         <div class="job-title">Data Analytics Partner, People Analytics — Dropbox</div>
-        <div class="pay">Pay not stated</div>
+        <div class="pay">Est. $110k/yr</div>
         <p class="expects">Analysing hiring and people data, and presenting the
           findings to stakeholders.</p>
         <div class="actions">
@@ -228,7 +228,7 @@ ul.todo a{color:var(--accent)}
 
       <div class="job">
         <div class="job-title">Data Analyst II — Brex</div>
-        <div class="pay">Pay not stated · asks 3+ yrs analytics</div>
+        <div class="pay">Est. $105k/yr · asks 3+ yrs analytics</div>
         <p class="expects">Building visualizations and self-service tools, plus
           ad-hoc analysis for business teams.</p>
         <div class="actions">

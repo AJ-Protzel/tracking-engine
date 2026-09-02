@@ -95,20 +95,27 @@ System were cut deliberately, along with the phase-health dots in the masthead.
 
 **Masthead** — "Morning Brief" and the date. No time, no status dots.
 
-1. **Money** — three figures for the current calendar month: In, Out, Net.
-   Colored: green for in, red for out, neutral for net. One line under them
-   saying this only sees what emails a receipt. Then unpaid bills from phase 2's
-   `bills_outstanding`, soonest due first — bills no longer sit in the inbox, so
-   this is the only place one surfaces.
+1. **Money — <current month>** — put the month in the heading itself
+   ("Money — September"), and recompute it every day so it always covers the
+   calendar month to date. Three figures: In, Out, Net; green, red, neutral. No
+   explanatory line under them — he cut it. Then unpaid bills from phase 2's
+   `bills_outstanding`, soonest due first, since bills no longer sit in the inbox
+   and this is the only place one surfaces.
 2. **Nutrition** — two tables, Adrien then Ashley, last 7 days: day, calories,
    protein, carbs, fat. Blank tables with a plain "no entries yet" line are
    correct until the food tracker moves over; do not hide the card.
 3. **Today's Applications** — at most five, each with:
    - title and company
-   - **pay**, when the posting states it. Most ATS postings do not, so "Pay not
-     stated" is the common case and is fine. Where the posting demands years of
-     experience, append it here (`· asks 4+ yrs`) — he applies above his level on
-     purpose and should see the gap before he spends an hour on the form.
+   - **pay — estimate it when the posting does not say.** Most ATS postings
+     omit salary, and "Pay not stated" told him nothing. Give a single rounded
+     figure inferred from the title, seniority, responsibilities, and location:
+     `Est. $95k/yr` or `Est. $32/hr`. **Always prefix an inference with "Est."**
+     and never dress it up with a range you did not read — the point is a rough
+     sense of whether the role clears his floor, not a number he might repeat to
+     a recruiter as fact. When the posting does state pay, print it without the
+     prefix. Where the posting demands years of experience, append it
+     (`· asks 4+ yrs`) — he applies above his level on purpose and should see the
+     gap before spending an hour on the form.
    - **one sentence on what the role expects him to do.** Not why it scores well
      — he does not need the sales pitch, he needs to know what the job is.
    - **one button: Apply** (the ATS link). No cover-letter button — removed
@@ -116,6 +123,11 @@ System were cut deliberately, along with the phase-health dots in the masthead.
      it in the report was a button he would never press.
    No fit/compounding scores, no location, no backlog age, and **no list of the
    backlog beyond today's five** — his call, 2026-09-02.
+
+   **Say nothing about queue health.** No "backlog is thin", no counts against a
+   floor, no widen-the-employer-list advice. If there are fewer than five, show
+   however many there are and say nothing about why. He does not want the
+   system's own anxiety in his morning.
 4. **Requires Action** — the only card standing between him and a missed reply,
    now that labeled mail leaves the inbox. Every item links to its Gmail thread.
    - drafts waiting to send. Name the sending address as just the part before the
