@@ -173,6 +173,29 @@ on conflict (external_id) do nothing;
 This is an interim feed and only catches what emails a receipt. Phase 3 says so
 on the finance card rather than implying the picture is complete.
 
+### Road to Loloma
+
+A wedding transaction also updates **Road to Loloma**
+(https://claude.ai/code/artifact/379bc5b0-e27c-4099-a159-1e866312dd5a), Adrien's
+live wedding plan, in its "The Numbers" section. Phase 2 owns this as of
+2026-09-02 — the receipt lands here first, so this is where it gets recorded.
+
+Read the **entire** artifact before republishing, not just the head — it is ~614
+lines and the read tool saves it to a local file. Republish from that file so
+nothing else on the page is lost.
+
+The arithmetic: `Total` = `Money spent` + `Money due`, and
+`Account after` = `Account total` − `Total`. So:
+
+- **Paying something already counted in Money due:** `spent += X`, `due -= X`.
+  Total and Account after do not move.
+- **A new, unplanned expense:** `spent += X`, `Total += X`, `Account after -= X`.
+
+You usually cannot tell which from a receipt. **Do not guess silently.** Use the
+second reading unless the payment clearly matches a known due line item, and
+either way state what you changed and on what assumption in the run summary so
+the report can show it and he can correct it.
+
 **Do NOT write to the Wedding Expenses Google Sheet**
 (`1PiXk2DgX3HdNAIhsQQWcyPSORqyJXXqKH85fVkMUGac`). It contains live formulas that a
 full-file rewrite would flatten to static numbers. Wedding rows are surfaced in

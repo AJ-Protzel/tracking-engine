@@ -88,43 +88,48 @@ Database size comes from the retention block in phase 1a's `summary`. Above
 
 ## Step 3 — render
 
-Card order, top to bottom. The order is deliberate: the thing he acts on comes
-before the thing he reads, and the thing that only matters when broken comes
-last.
+Adrien rewrote this layout by hand on 2026-09-02. Four cards, in this order.
+Money and Nutrition come first because they are glanceable; the two that need
+him come after. **Do not add cards back that he removed** — Inbox, Pipeline, and
+System were cut deliberately, along with the phase-health dots in the masthead.
 
-1. **Apply today** — the five prepared jobs. Title, company, location,
-   `fit/compounding`, the one-sentence verdict, an Apply button to the ATS link
-   and a Cover letter button to the Doc. Below them, one line: how many more are
-   in the backlog.
-2. **Needs you** — drafts waiting to send (each naming which address to send
-   from), wedding payments to add to Road to Loloma, flagged mail, job
-   correspondence, calendar items skipped for want of a time, and job replies
-   that could not be matched with confidence. Omit the card entirely when it is
-   empty; this is the one card that should never cry wolf.
+**Masthead** — "Morning Brief" and the date. No time, no status dots.
 
-   As of 2026-09-02 labeled mail no longer stays in the inbox, so this card is
-   the only thing standing between Adrien and a missed reply. Link every item to
-   its Gmail thread. If phase 2 failed or did not run, say that here in place of
-   an empty card — "nothing needs you" and "nobody looked" must not look alike.
-3. **Money** — **unpaid bills first**, from phase 2's `bills_outstanding`: who,
-   what for, amount and due date where the message stated them, soonest due at
-   the top. Bills no longer sit in the inbox, so this card is the only place an
-   unpaid one surfaces — if phase 2 did not run, say so here rather than showing
-   an empty bills list, which would read as "nothing owed".
-   Then transactions newest first, weekly in/out, wedding rows called out. State
-   on the card that transactions only catch what emails a receipt.
-4. **Inbox** — counts by label, newsletters one line each, trashed, newly
-   blocked senders.
-5. **Food** — both people, last 7 days.
-6. **Pipeline** — the funnel from fetched to backlog, plus the top five kill
-   rules. This is what says whether the filters are aimed right.
-7. **System** — one line per phase: last run, duration, status. Database size
-   against the cap.
+1. **Money** — three figures for the current calendar month: In, Out, Net.
+   Colored: green for in, red for out, neutral for net. One line under them
+   saying this only sees what emails a receipt. Then unpaid bills from phase 2's
+   `bills_outstanding`, soonest due first — bills no longer sit in the inbox, so
+   this is the only place one surfaces.
+2. **Nutrition** — two tables, Adrien then Ashley, last 7 days: day, calories,
+   protein, carbs, fat. Blank tables with a plain "no entries yet" line are
+   correct until the food tracker moves over; do not hide the card.
+3. **Today's Applications** — at most five, each with:
+   - title and company
+   - **pay**, when the posting states it. Most ATS postings do not, so "Pay not
+     stated" is the common case and is fine. Where the posting demands years of
+     experience, append it here (`· asks 4+ yrs`) — he applies above his level on
+     purpose and should see the gap before he spends an hour on the form.
+   - **one sentence on what the role expects him to do.** Not why it scores well
+     — he does not need the sales pitch, he needs to know what the job is.
+   - two buttons: Apply (the ATS link) and Cover letter (the Doc).
+   No fit/compounding scores, no location, no backlog age, and **no list of the
+   backlog beyond today's five** — his call, 2026-09-02.
+4. **Requires Action** — the only card standing between him and a missed reply,
+   now that labeled mail leaves the inbox. Every item links to its Gmail thread.
+   - drafts waiting to send. Name the sending address as just the part before the
+     `@`, at the start of the line, then a colon: `winterbot090: ...`
+   - mail flagged for review, and why
+   - calendar items that named a date but no time
+   - job replies that could not be matched with confidence
+   - **any phase that failed or did not run.** He removed the System card, so a
+     broken phase has nowhere else to appear. This is the safety net for that.
+   Omit the card entirely when there is genuinely nothing. Never render it empty
+   because phase 2 failed — say the sweep failed instead.
 
 Build the page from `phase3/template.html` in the repo. Keep its structure,
 tokens, and both themes — it is mobile-first because it is read on a phone from
-the home screen. Do not restyle it on a whim; Adrien iterates on this layout
-himself and an unrequested redesign throws away his edits.
+the home screen. Do not restyle it on a whim; this layout is his and an
+unrequested redesign throws away his edits.
 
 Publish with the Artifact tool, passing `url` =
 `https://claude.ai/code/artifact/fb3d377a-c279-4b59-b182-2b90616d084d` so it
@@ -132,36 +137,14 @@ updates in place. **Never publish without that URL** — publishing without it
 creates a second artifact and his home-screen icon silently stops updating.
 Favicon stays 🌅 and the title stays "Tracking Engine Brief".
 
-## Step 4 — wedding payments and Road to Loloma
+## Step 4 — wedding payments
 
-Any transaction with `wedding = true` that has not yet been reflected there
-belongs in **Road to Loloma**
-(https://claude.ai/code/artifact/379bc5b0-e27c-4099-a159-1e866312dd5a) — Adrien's
-live wedding master plan, in its "The Numbers" section.
+Do **not** update Road to Loloma from here (changed 2026-09-02). A wedding
+payment shows up in the report as a notification only; the receipt arrives by
+email and phase 2 updates the artifact on its next sweep. One writer, one place.
 
-Before republishing it you **must read the entire artifact file**, not just the
-head — it is ~614 lines and the read tool saves it to a local file. Republish
-from that file so nothing else on the page is lost.
-
-The arithmetic in "The Numbers":
-
-- `Total` = `Money spent` + `Money due`
-- `Account after` = `Account total` − `Total`
-
-Which means a payment behaves differently depending on what it was:
-
-- **Paying something already counted in Money due:** `spent += X`, `due -= X`.
-  `Total` and `Account after` do not change.
-- **A new, unplanned expense:** `spent += X`, `Total += X`,
-  `Account after -= X`.
-
-You usually cannot tell which from the email alone. **Do not guess.** Apply the
-first interpretation only when the payment clearly matches a known due line item;
-otherwise apply the second, and in both cases state plainly in the report's
-"Needs you" card what you changed and on what assumption, so he can correct it.
-
-Do not write to the Wedding Expenses Google Sheet. Its live formulas would be
-flattened by a rewrite.
+Just list any `wedding = true` transaction from the last day in Requires Action
+so he knows it happened.
 
 ## Step 5 — close the run row
 

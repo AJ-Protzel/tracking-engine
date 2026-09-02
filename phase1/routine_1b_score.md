@@ -170,10 +170,18 @@ Also record:
 - **title_bucket** — one of `analytics_eng`, `data_analyst`, `bi_reporting`,
   `data_quality`, `business_systems`, `ops_analyst`, `implementation`,
   `support_analyst`, `platform_admin`, `public_sector`, `other`.
-- **verdict** — ONE sentence, shown to Adrien. The real reason, not a summary of
-  the posting.
+- **verdict** — ONE sentence describing **what the role actually expects him to
+  do**, in plain terms. This is rendered in the report as the only description of
+  the job, and he wants to know what the work is, not why it scored well
+  (his call, 2026-09-02). Put the scoring reasoning in `builds` and `concerns`.
 - **builds** — what a year there adds to his resume. Concrete.
 - **concerns** — anything giving you pause. Blank is fine.
+- **years_asked** — if the posting states a years-of-experience requirement, put
+  it in `concerns` in a form the report can show (`asks 4+ yrs financial
+  services`). The report prints it next to the pay so he sees the stretch before
+  spending an hour on the form. Note the description you score against is
+  truncated at 2,500 characters, so check the full record for this before
+  writing the letter.
 - **soft_flags** — a Postgres `text[]` of short warnings. Flag disguised quota
   roles ("customer success" with renewal targets, "solutions engineer" with
   pre-sales language, "consultant" doing business development), anything below
