@@ -262,11 +262,11 @@ and tweaks it himself in Simplify, which is what that tool is built to do. Point
 every prepared application at it:
 
 ```sql
-update applications set cover_url = 'https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit'
+update applications set cover_url = 'https://docs.google.com/document/d/1mXk0zUMK6cxwAnGqzt0wbzYD1OOz8zYF5otgVxyNvi0/edit'
  where job_id in (...);
 ```
 
-Master letter: `https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit`
+Master letter: `https://docs.google.com/document/d/1mXk0zUMK6cxwAnGqzt0wbzYD1OOz8zYF5otgVxyNvi0/edit`
 
 Do not generate per-job letters, do not create dated Drive folders, and do not
 touch Drive at all — this phase no longer needs the connector. Four bespoke

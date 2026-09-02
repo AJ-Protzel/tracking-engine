@@ -112,7 +112,7 @@ System were cut deliberately, along with the phase-health dots in the masthead.
    - **one sentence on what the role expects him to do.** Not why it scores well
      — he does not need the sales pitch, he needs to know what the job is.
    - two buttons: Apply (the ATS link) and Cover letter, which always points at
-     the one master letter — `https://docs.google.com/document/d/1Zystoq9sdoRHpuL7K83-O26xTz8ALT42DLWhrxYEAes/edit`.
+     the one master letter — `https://docs.google.com/document/d/1mXk0zUMK6cxwAnGqzt0wbzYD1OOz8zYF5otgVxyNvi0/edit`.
      There are no per-job letters as of 2026-09-02; he tweaks the master in
      Simplify himself.
    No fit/compounding scores, no location, no backlog age, and **no list of the
