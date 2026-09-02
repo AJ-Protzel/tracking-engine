@@ -27,7 +27,7 @@ Fixed. Use these IDs directly; only re-verify if a label operation errors.
 |---|---|---|
 | Needs Response | `Label_1` | Personal correspondence directed at Adrien, wants a reply |
 | Jobs | `Label_2` | Offers, referrals, recruiters, interviews, replies to applications |
-| Bills | `Label_3` | Money owed, not yet paid. Stays actionable in inbox |
+| Bills | `Label_3` | Money owed, not yet paid. Filed out of the inbox; surfaced in the report |
 | Newsletters | `Label_4` | Bulk subscription content worth a one-line mention |
 | Save | `Label_5` | Worth keeping, no urgency, fits nothing else. Rare |
 | Flagged for Review | `Label_6` | Ambiguous, phishing-suspicious, or a failed legitimacy check |
@@ -89,8 +89,9 @@ category tab. Exactly one outcome per thread:
 1. **Money In** — he received money. Label, remove from inbox. → Step 3.
 2. **Money Out** — confirmation of a purchase or payment he made. Label, remove
    from inbox. → Step 3.
-3. **Bills** — an amount is owed or being requested, not yet paid. Label, **keep
-   in inbox**.
+3. **Bills** — an amount is owed or being requested, not yet paid. Label,
+   **remove from inbox** (changed 2026-09-02 — they used to stay). Step 3b is
+   what keeps them visible now, so do not skip it.
 4. **Jobs + legitimacy check** — offer, referral, recruiter, interview, or a
    reply to an application. Sanity-check the sender: does the domain match a real
    company, is there a plausible web presence (one WebSearch is enough), any
@@ -112,12 +113,33 @@ category tab. Exactly one outcome per thread:
    inbox.
 
 "Remove from inbox" = add the target label, then `update_message_labels` with
-`removeLabelIds: ['INBOX']`. Bills, Jobs, Needs Response, and Flagged for Review
-stay in the inbox on purpose.
+`removeLabelIds: ['INBOX']`. **Verify it actually left** — labeling a thread does
+not remove it from the inbox by itself, and a thread that keeps both labels looks
+filed while still sitting there.
+
+Jobs, Needs Response, and Flagged for Review stay in the inbox on purpose. Bills
+no longer do.
 
 Write one `email_actions` row per thread as you go: `run_id`, `gmail_thread_id`,
 `action`, `label`, `subject_snippet`, and `note` where useful. This is what the
 report renders and what makes the sweep auditable.
+
+## Step 3b — outstanding bills
+
+Bills leave the inbox now, which means nothing surfaces an unpaid one unless
+this step does. Run it **every time**, not only when a new bill turned up:
+
+Search Gmail for `label:Label_3` (cap 30), regardless of whether the thread was
+touched this run — an unpaid bill from last week matters more than one from this
+morning. For each, collect what a person needs to act: who it is from, what it
+is for, the amount if the message states one, and the due date if it states one.
+
+Put the list in the run summary as `bills_outstanding`. Phase 3 renders it, and
+that is the only place an unpaid bill now appears.
+
+Do not guess an amount or a due date that is not written in the message, and do
+not mark anything paid. This routine only reports; Adrien pays and then trashes
+or re-labels the thread himself.
 
 ## Step 3 — transactions
 
@@ -247,7 +269,7 @@ newly-blocked senders in the summary.
 ```sql
 update phase_runs set finished_at = now(), status = 'ok',
   counts = '{"scanned": N, "labeled": N, "trashed": N, "drafts": N, "transactions": N, "events": N, "spam_rescued": N}'::jsonb,
-  summary = '{"newly_blocked": [...], "wedding_expenses": [...], "flagged": [...], "drafts": [...], "uncertain_matches": [...], "failures": [...]}'::jsonb
+  summary = '{"newly_blocked": [...], "wedding_expenses": [...], "bills_outstanding": [...], "flagged": [...], "drafts": [...], "uncertain_matches": [...], "failures": [...]}'::jsonb
 where id = <run id>;
 ```
 

@@ -101,8 +101,13 @@ last.
    skipped for want of a time, and job replies that could not be matched with
    confidence. Omit the card entirely when it is empty; this is the one card that
    should never cry wolf.
-3. **Money** — transactions newest first, weekly in/out, wedding rows called out.
-   State on the card that it only catches what emails a receipt.
+3. **Money** — **unpaid bills first**, from phase 2's `bills_outstanding`: who,
+   what for, amount and due date where the message stated them, soonest due at
+   the top. Bills no longer sit in the inbox, so this card is the only place an
+   unpaid one surfaces — if phase 2 did not run, say so here rather than showing
+   an empty bills list, which would read as "nothing owed".
+   Then transactions newest first, weekly in/out, wedding rows called out. State
+   on the card that transactions only catch what emails a receipt.
 4. **Inbox** — counts by label, newsletters one line each, trashed, newly
    blocked senders.
 5. **Food** — both people, last 7 days.
