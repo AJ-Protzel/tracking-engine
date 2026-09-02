@@ -90,18 +90,17 @@ category tab. Exactly one outcome per thread:
 2. **Money Out** — confirmation of a purchase or payment he made. Label, remove
    from inbox. → Step 3.
 3. **Bills** — an amount is owed or being requested, not yet paid. Label,
-   **remove from inbox** (changed 2026-09-02 — they used to stay). Step 3b is
-   what keeps them visible now, so do not skip it.
+   remove from inbox. Step 3b is what keeps them visible, so do not skip it.
 4. **Jobs + legitimacy check** — offer, referral, recruiter, interview, or a
    reply to an application. Sanity-check the sender: does the domain match a real
    company, is there a plausible web presence (one WebSearch is enough), any
    phishing tells (urgency, upfront fees, mismatched reply-to, mass-blast
-   phrasing)? Legitimate → label Jobs only, keep in inbox, no draft. Failed or
-   uncertain → label Jobs **and** Flagged for Review, keep in inbox, no draft,
-   and record what looked off. Then → Step 4.
+   phrasing)? Legitimate → label Jobs only, remove from inbox, no draft. Failed
+   or uncertain → label Jobs **and** Flagged for Review, remove from inbox, no
+   draft, and record what looked off so the report can show it. Then → Step 4.
 5. **Needs Response** — a real message from an actual person, directed at him,
    wanting a reply. Automated mail never qualifies, however many "reply" buttons
-   it has. Label, keep in inbox. → Step 5.
+   it has. Label, remove from inbox. → Step 5.
 6. **Newsletter** — recurring subscription content he signed up for, with
    something worth a one-line mention. Label Newsletters for the paper trail,
    write an `email_actions` row with `note` = a one-line gist, then
@@ -112,13 +111,22 @@ category tab. Exactly one outcome per thread:
    sparingly; prefer trash for genuinely low-value mail. Label, remove from
    inbox.
 
+### Labeled mail always leaves the inbox
+
+**Every** thread you label comes out of the inbox — all eight labels, no
+exceptions (Adrien, 2026-09-02, overriding the previous rule where Bills, Jobs,
+Needs Response, and Flagged for Review stayed). Once it is filed it is filed; if
+it needs him, the morning report tells him.
+
 "Remove from inbox" = add the target label, then `update_message_labels` with
 `removeLabelIds: ['INBOX']`. **Verify it actually left** — labeling a thread does
-not remove it from the inbox by itself, and a thread that keeps both labels looks
-filed while still sitting there.
+not remove it from the inbox by itself, and a thread carrying both looks filed
+while still sitting there.
 
-Jobs, Needs Response, and Flagged for Review stay in the inbox on purpose. Bills
-no longer do.
+This makes the report load-bearing rather than a convenience. Anything that
+needs a human — a draft to send, an unpaid bill, a flagged thread, a job reply —
+must reach the run summary, because the inbox is no longer a second place he
+would have noticed it. A thread filed without being reported is a thread lost.
 
 Write one `email_actions` row per thread as you go: `run_id`, `gmail_thread_id`,
 `action`, `label`, `subject_snippet`, and `note` where useful. This is what the
@@ -269,7 +277,7 @@ newly-blocked senders in the summary.
 ```sql
 update phase_runs set finished_at = now(), status = 'ok',
   counts = '{"scanned": N, "labeled": N, "trashed": N, "drafts": N, "transactions": N, "events": N, "spam_rescued": N}'::jsonb,
-  summary = '{"newly_blocked": [...], "wedding_expenses": [...], "bills_outstanding": [...], "flagged": [...], "drafts": [...], "uncertain_matches": [...], "failures": [...]}'::jsonb
+  summary = '{"newly_blocked": [...], "wedding_expenses": [...], "bills_outstanding": [...], "flagged": [...], "drafts": [...], "job_threads": [...], "uncertain_matches": [...], "failures": [...]}'::jsonb
 where id = <run id>;
 ```
 

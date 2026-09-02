@@ -97,10 +97,15 @@ last.
    and a Cover letter button to the Doc. Below them, one line: how many more are
    in the backlog.
 2. **Needs you** — drafts waiting to send (each naming which address to send
-   from), wedding payments to add to Road to Loloma, flagged mail, calendar items
-   skipped for want of a time, and job replies that could not be matched with
-   confidence. Omit the card entirely when it is empty; this is the one card that
-   should never cry wolf.
+   from), wedding payments to add to Road to Loloma, flagged mail, job
+   correspondence, calendar items skipped for want of a time, and job replies
+   that could not be matched with confidence. Omit the card entirely when it is
+   empty; this is the one card that should never cry wolf.
+
+   As of 2026-09-02 labeled mail no longer stays in the inbox, so this card is
+   the only thing standing between Adrien and a missed reply. Link every item to
+   its Gmail thread. If phase 2 failed or did not run, say that here in place of
+   an empty card — "nothing needs you" and "nobody looked" must not look alike.
 3. **Money** — **unpaid bills first**, from phase 2's `bills_outstanding`: who,
    what for, amount and due date where the message stated them, soonest due at
    the top. Bills no longer sit in the inbox, so this card is the only place an
