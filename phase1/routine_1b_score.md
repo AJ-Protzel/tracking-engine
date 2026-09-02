@@ -255,6 +255,13 @@ update applications a set status = 'skipped',
 
 Fewer than 5 available is fine. Do not reach past the bars to fill the number.
 
+### `cover_url` is just the prepared marker now
+
+Nothing renders it — the report dropped the cover-letter button on 2026-09-02.
+It stays only because `v_queue_live` and the query above use it to tell prepared
+applications from unprepared ones. Keep setting it; do not build anything new on
+it.
+
 ### Do NOT write cover letters
 
 Changed 2026-09-02, at Adrien's direction. He uses **one master cover letter**
