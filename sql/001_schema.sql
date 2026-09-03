@@ -53,10 +53,13 @@ create table if not exists jobs (
 create index if not exists jobs_first_seen_idx on jobs (first_seen_at desc);
 create index if not exists jobs_company_title_idx on jobs (company, title);
 
--- cross-source dedupe key: the same posting shows up on Greenhouse and an
--- aggregator with different ids. We keep both rows but only one is canonical.
-create index if not exists jobs_dedupe_idx
-  on jobs (lower(company), lower(title), lower(coalesce(location_raw, '')));
+-- Cross-source dedupe -- the same posting appearing on Greenhouse and on an
+-- aggregator under different ids -- is resolved in Python by normalize.dedupe()
+-- before the upsert runs, so there is deliberately no index for it here. The
+-- uniqueness the database enforces is the (source, source_job_id) constraint
+-- above. An index on lower(company)/lower(title)/lower(location) existed until
+-- 2026-09-03 and was dropped after never being scanned once: it cost 1.6 MB and
+-- write amplification on ~10k nightly upserts to answer a question nothing asks.
 
 -- hard-filter outcome, written by ingest
 create table if not exists job_filters (
@@ -179,7 +182,11 @@ create index if not exists phase_runs_phase_started_idx
 
 -- Columns are listed rather than j.*: an expanded star pins every column into
 -- the view definition, which is what blocked dropping jobs.raw.
-create or replace view v_queue as
+-- security_invoker: without it a view runs as its owner (postgres, which has
+-- BYPASSRLS), so it reads straight past the RLS that protects every base table
+-- below. These two views were the only way the anon key could read this data
+-- until 2026-09-03. Any view added here needs this too.
+create or replace view v_queue with (security_invoker = true) as
   select a.id as application_id, a.status, a.cover_url, a.queued_at,
          j.id, j.source, j.source_job_id, j.company, j.title, j.location_raw,
          j.region, j.employment_type, j.salary_min, j.salary_max, j.description,
@@ -192,9 +199,24 @@ create or replace view v_queue as
   where a.status = 'queued'
   order by s.fit desc, j.first_seen_at desc;
 
+-- The same queue plus a staleness flag. A posting the nightly ingest has not
+-- re-seen in 7 days is probably closed, so phase 3 retires it rather than
+-- surfacing an apply link that 404s.
+-- Columns listed rather than q.*, for the same reason as v_queue above.
+create or replace view v_queue_live with (security_invoker = true) as
+  select q.application_id, q.status, q.cover_url, q.queued_at,
+         q.id, q.source, q.source_job_id, q.company, q.title, q.location_raw,
+         q.region, q.employment_type, q.salary_min, q.salary_max, q.description,
+         q.apply_url, q.posted_at, q.first_seen_at, q.last_seen_at,
+         q.fit, q.compounding, q.verdict, q.builds, q.concerns, q.title_bucket,
+         j.last_seen_at as seen_at,
+         (now() - j.last_seen_at) > interval '7 days' as likely_closed
+  from v_queue q
+  join jobs j on j.id = q.id;
+
 -- Employers currently owned by an agency. The filter reads this, not the base
 -- table, so expiry and deactivation are handled in one place.
-create or replace view v_blocked_employers as
+create or replace view v_blocked_employers with (security_invoker = true) as
   select lower(client_name) as client_key, client_name, client_domain,
          agency, role_title, submitted_at, expires_at
   from recruiter_submissions
@@ -249,6 +271,9 @@ create table if not exists email_actions (
   acted_at        timestamptz not null default now()
 );
 create index if not exists email_actions_acted_idx on email_actions (acted_at desc);
+-- prune_old_data() deletes aged phase_runs rows, and each delete forces an FK
+-- recheck against this table. Cheap to carry, and this table only grows.
+create index if not exists email_actions_run_id_idx on email_actions (run_id);
 
 -- Senders to watch or trash on sight. Lifted out of a Google Drive CSV so that
 -- no phase depends on a file that can be moved, renamed, or half-written.
@@ -317,6 +342,29 @@ create table if not exists food_log (
 );
 create index if not exists food_log_date_idx on food_log (date desc);
 
+-- Symptoms, vitals, medications and events, one row per entry. Read and written
+-- by the doctor skill, which also owns food_log and nutrition_items above.
+create table if not exists health_log (
+  id              uuid primary key default gen_random_uuid(),
+  person          text not null default 'Adrien' check (person in ('Adrien','Ashley')),
+  date            date not null default current_date,
+  logged_at       timestamptz not null default now(),
+  entry_type      text not null check (entry_type in ('symptom','vital','medication','event','note')),
+  label           text not null,
+  body_location   text,
+  severity        int check (severity between 1 and 10),
+  value           numeric,                    -- for vitals: the reading
+  unit            text,                       -- for vitals: mmHg, bpm, lb
+  started_at      date,
+  resolved_at     date,
+  status          text not null default 'open'
+                  check (status in ('open','resolved','recurring','monitoring')),
+  suspected_cause text,
+  notes           text
+);
+create index if not exists health_log_person_date_idx on health_log (person, date desc);
+create index if not exists health_log_type_status_idx on health_log (entry_type, status);
+
 -- ---------------------------------------------------------------------------
 -- RLS on with no policies: only the service key reaches these tables, and the
 -- service key lives in GitHub Actions secrets and the routine connectors.
@@ -337,3 +385,19 @@ alter table calendar_intents      enable row level security;
 alter table wedding_vendors       enable row level security;
 alter table nutrition_items       enable row level security;
 alter table food_log              enable row level security;
+alter table health_log            enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- RLS with no policies denies reads, but it does not remove the table GRANTs
+-- Supabase hands anon and authenticated by default. Those grants include INSERT,
+-- UPDATE, DELETE and TRUNCATE -- so the day anyone adds a permissive policy to
+-- one of these tables to make a read work, they also hand the public anon key
+-- write access to it. Nothing here uses either role: there are no auth users, no
+-- edge functions and no storage. Every phase connects as service_role.
+-- ---------------------------------------------------------------------------
+revoke all on all tables    in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+
+-- and stop tables created later from quietly re-acquiring them
+alter default privileges in schema public revoke all on tables    from anon, authenticated;
+alter default privileges in schema public revoke all on sequences from anon, authenticated;
