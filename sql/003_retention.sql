@@ -6,6 +6,18 @@
 -- so something has to remove what stopped mattering. This runs server-side
 -- rather than in Python: it is several correlated deletes, and one round trip
 -- inside one transaction is both faster and harder to half-apply.
+--
+-- KNOWN LIMIT, measured 2026-09-03. Both age tests below key on last_seen_at,
+-- which the nightly ingest refreshes for every posting still listed. A job that
+-- stays open therefore never ages out, and on that day the function had 0 rows
+-- to act on while the database sat at 78 MB. Retention only reclaims postings
+-- that fall off their board -- it is not what bounds steady-state size.
+--
+-- What actually grows is TOAST churn, the same shape of problem the raw column
+-- had. Rewriting ~10k description values every night leaves dead TOAST pages
+-- faster than autovacuum reclaims them: 54 MB of TOAST behind 25 MB of live
+-- description text. A `vacuum (full, analyze) jobs` took the database from
+-- 78 MB to 48 MB. If it climbs again, that -- not this function -- is the lever.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.prune_old_data()
