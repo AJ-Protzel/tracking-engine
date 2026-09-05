@@ -1,4 +1,16 @@
 -- ---------------------------------------------------------------------------
+-- SUPERSEDED 2026-09-04 by 004_drop_job_tracking.sql, and historical from here.
+--
+-- This version deletes from `jobs` and reads `job_scores` and `applications`,
+-- none of which exist any more, so running it now fails. v_queue_live went with
+-- them. The current prune_old_data() -- phase_runs and email_actions only --
+-- lives at the bottom of 001.
+--
+-- Kept because the measurement below is the most useful thing in this file and
+-- because detached phase 1 would need this back. See phase1/README.md.
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
 -- Retention. Called by phase 1a at the end of every ingest.
 --
 -- The free tier caps the database at 500 MB. Dropping the raw payload column

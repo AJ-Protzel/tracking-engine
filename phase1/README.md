@@ -1,5 +1,28 @@
 # Phase 1 — Extract
 
+> ## ⚠️ DETACHED — 2026-09-04
+>
+> **Phase 1 no longer runs and is not part of the pipeline.** The code is kept
+> here on purpose — it is the most interesting engineering in the repo — but it
+> is wired to nothing:
+>
+> - The seven job tables it reads and writes (`jobs`, `job_filters`,
+>   `job_scores`, `companies`, `applications`, `email_events`,
+>   `recruiter_submissions`) were **dropped from the database**. See
+>   `sql/004_drop_job_tracking.sql`.
+> - The Actions schedule is **removed**, so 1a never fires on its own.
+> - The 1b cloud routine is **deleted**, so nothing fetches
+>   `routine_1b_score.md` any more.
+> - Phase 3 no longer renders a jobs card, and phase 2 no longer advances
+>   applications.
+>
+> `pytest -q` still passes — the filter tests are pure functions and touch no
+> database. Everything else here needs schema that no longer exists.
+>
+> **To bring it back:** re-run the table definitions from git history
+> (`git show <commit before 004>:sql/001_schema.sql`), restore the Actions
+> `schedule:` block, recreate the 1b routine, and re-add the card to phase 3.
+
 Collects what there is to know and writes it to Postgres. Nothing here decides
 anything a person would argue with; it fetches, normalizes, and applies rules
 that are the same every time.

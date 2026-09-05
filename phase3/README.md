@@ -4,7 +4,7 @@ Reads the tables and renders one page, ready before 8:30am. It replaces three
 separate status emails that used to arrive in the inbox phase 2 is trying to
 clean.
 
-Not built yet. Will hold `routine_3_artifact.md` and a page template.
+Holds `routine_3_artifact.md` and `template.html`.
 
 ## 3 — build the report · 8:00am PT
 
@@ -17,7 +17,6 @@ Cards:
 | Card | Source |
 |---|---|
 | Finances | `transactions`. Renders empty and says so until data exists |
-| Jobs | `v_queue` — apply link, cover letter, plus high-fit jobs blocked on compounding |
 | Email | `email_actions` from today's sweep |
 | Food | `food_log`, both people, last 7 days |
 | Phase health | Newest `phase_runs` row per phase |

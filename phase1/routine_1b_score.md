@@ -1,5 +1,12 @@
 # Phase 1b — score and prepare
 
+> ## ⚠️ DETACHED — 2026-09-04
+>
+> **There is no live routine running this prompt.** It was deleted along with the
+> rest of job tracking. The tables it writes to no longer exist, so running this
+> as-is fails on its first statement. Kept for reference and for the day the job
+> hunt resumes. See `phase1/README.md`.
+
 The prompt for the 6:30am PT daily cloud routine. Source of truth: edit here,
 commit, then paste into the routine.
 

@@ -99,25 +99,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;
 th:last-child,td:last-child{padding-right:0}
 .blank{color:var(--ink-3)}
 
-/* jobs */
-.job{display:flex;flex-direction:column;gap:6px;padding:16px 0;
-  border-bottom:1px solid var(--line-2)}
-.job:first-child{padding-top:0}
-.job:last-child{border-bottom:none;padding-bottom:0}
-.job-title{font-weight:600;font-size:16px;line-height:1.3}
-.pay{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;
-  color:var(--ink-3)}
-.expects{color:var(--ink-2);font-size:14px}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-a.btn{display:inline-block;text-decoration:none;font-size:13px;font-weight:600;
-  padding:9px 15px;border-radius:8px;border:1px solid var(--line);
-  color:var(--ink);background:var(--sunk);min-height:40px;line-height:22px}
-a.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) a.btn.primary{color:#14202b}
-}
-:root[data-theme="dark"] a.btn.primary{color:#14202b}
-a.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* requires action */
 ul.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
@@ -188,57 +169,6 @@ ul.todo a{color:var(--accent)}
     </div>
   </section>
 
-  <!-- ============ TODAY'S APPLICATIONS ============ -->
-  <section class="card">
-    <div class="card-head">
-      <h2>Today's Applications</h2>
-      <span class="count act">4</span>
-    </div>
-    <div class="card-body">
-
-      <div class="job">
-        <div class="job-title">Analyst — Affirm</div>
-        <div class="pay">Est. $75k/yr</div>
-        <p class="expects">Entry-level Analyst I on the Risk &amp; Analytics team:
-          quantitative work on approval, conversion, and loss optimization.</p>
-        <div class="actions">
-          <a class="btn primary" href="https://job-boards.greenhouse.io/affirm/jobs/7808667003">Apply</a>
-        </div>
-      </div>
-
-      <div class="job">
-        <div class="job-title">Data Analyst, Pricing — SoFi</div>
-        <div class="pay">Est. $95k/yr · asks 4+ yrs financial services</div>
-        <p class="expects">Validation work and Tableau dashboards supporting
-          pricing decisions.</p>
-        <div class="actions">
-          <a class="btn primary" href="https://sofi.com/careers/job/7820964003?gh_jid=7820964003">Apply</a>
-        </div>
-      </div>
-
-      <div class="job">
-        <div class="job-title">Data Analytics Partner, People Analytics — Dropbox</div>
-        <div class="pay">Est. $110k/yr</div>
-        <p class="expects">Analysing hiring and people data, and presenting the
-          findings to stakeholders.</p>
-        <div class="actions">
-          <a class="btn primary" href="https://jobs.dropbox.com/listing/8126572?gh_jid=8126572">Apply</a>
-        </div>
-      </div>
-
-      <div class="job">
-        <div class="job-title">Data Analyst II — Brex</div>
-        <div class="pay">Est. $105k/yr · asks 3+ yrs analytics</div>
-        <p class="expects">Building visualizations and self-service tools, plus
-          ad-hoc analysis for business teams.</p>
-        <div class="actions">
-          <a class="btn primary" href="https://www.brex.com/careers/8463696002?gh_jid=8463696002">Apply</a>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
   <!-- ============ REQUIRES ACTION ============ -->
   <section class="card">
     <div class="card-head">
@@ -255,11 +185,10 @@ ul.todo a{color:var(--accent)}
             <a href="https://mail.google.com/mail/u/0/#all/1a05e4590bf7ceaf">open the thread</a>.</div>
         </li>
         <li>
-          <span class="tag">Injection</span>
-          <div>A Benzinga job posting contained hidden text trying to instruct the
-            scorer to insert a keyword into your application. It was ignored and
-            scored low anyway. Nothing to do — flagged because it is the first
-            one seen.</div>
+          <span class="tag">No time</span>
+          <div>A thread from Folsom Veterinary named a date but no time, so no
+            calendar event was created —
+            <a href="https://mail.google.com/mail/u/0/#all/0000000000000000">open the thread</a>.</div>
         </li>
       </ul>
     </div>

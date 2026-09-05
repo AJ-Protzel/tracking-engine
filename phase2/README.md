@@ -4,7 +4,7 @@ Sweeps the inbox, records what it did, and queues anything that belongs on a
 calendar. Runs as a scheduled cloud session with the Gmail connector, so the
 "source code" here is a prompt rather than Python.
 
-Not built yet. Two files will live here.
+Two files live here.
 
 ## 2 — email sweep · 7:15am PT · `routine_2_email.md`
 
@@ -14,13 +14,11 @@ the primary, promotions, social, and updates categories, plus one light pass
 over spam to rescue obvious false positives. Drafts replies to personal mail
 that wants one.
 
-Three things it does that the old sweeper did not:
+Two things it does that the old sweeper did not:
 
 - **Money In / Money Out threads become `transactions` rows.** An interim feed
   until real account access exists. It only catches what emails a receipt, and
   the report says so rather than implying the picture is complete.
-- **"Thanks for applying" advances the application.** Matched to a company, it
-  flips `applications.status`. This is the loop the two old systems left open.
 - **Threads with a real date and time become `calendar_intents` rows** for 2b.
 
 Writes an `email_actions` row per thread, which is what makes the sweep

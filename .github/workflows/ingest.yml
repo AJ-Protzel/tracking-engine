@@ -1,23 +1,18 @@
 name: phase-1a-ingest
 
-# Phase 1a. 01:00 America/Los_Angeles, deliberately early.
+# DETACHED 2026-09-04. Job tracking was removed from Tracking Engine: the seven
+# tables this writes to were dropped from the database, so a real run now fails
+# on its first upsert.
 #
-# The plan was for phase 1b to dispatch this directly at 06:30 PT rather than
-# trust the scheduler, because Actions crons have run up to 9.5 hours late here
-# (scheduled 11:30 UTC, observed 21:04 UTC on 2026-08-27). That turned out not
-# to be possible: 1b runs in a sandbox with no authenticated `gh`, so it cannot
-# dispatch anything.
+# The `schedule:` trigger is deliberately gone -- that is what actually stops it
+# firing, and it is the one line to restore if the job hunt resumes. The ingest
+# job below is additionally gated off so that a stray `workflow_dispatch` cannot
+# run it against a schema that is not there.
 #
-# So the schedule absorbs the lateness instead. Firing at 01:00 PT leaves five
-# and a half hours of slack before 1b needs the data at 06:30, which covers the
-# worst delay actually observed. If a run lands after 1b, the backlog carries
-# that morning and the postings get scored the next day.
+# The test job still runs on every push. The filter tests are pure functions and
+# touch no database, so they stay green and keep the code honest.
 on:
-  schedule:
-    - cron: "0 8 * * *"
   workflow_dispatch:
-  # Tests run on every push; the ingest job below is gated so a push never
-  # triggers a real run against the database.
   push:
     branches: [main]
   pull_request:
@@ -28,7 +23,8 @@ concurrency:
 
 jobs:
   ingest:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Detached: never runs. Restore the condition below alongside `schedule:`.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

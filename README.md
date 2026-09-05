@@ -1,68 +1,62 @@
 # tracking-engine
 
 A personal data pipeline that runs on hosted infrastructure with no machine of
-mine involved. It collects job postings from public ATS APIs, sweeps and
-organizes an email account, records what it did, and renders one report each
-morning — ready before I wake up.
+mine involved. It sweeps and organizes an email account, turns receipts into a
+ledger, drains anything date-shaped onto a calendar, records what it did, and
+renders one report each morning — ready before I wake up.
 
 It replaces two earlier systems that worked separately and never joined up, plus
 three status emails that arrived in the inbox the pipeline itself was trying to
 clean.
 
+It also used to run a job-application pipeline — seven ATS APIs, scored postings,
+generated cover letters. That was switched off on 2026-09-04; the code is still
+here, detached. See [Job tracking, removed](#job-tracking-removed).
+
 ---
 
 ## The problem it solves
 
-Two problems, and they turned out to be the same problem.
+**Nothing was in one place.** A mail sweeper labeled things, a food tracker
+logged meals into a spreadsheet, and a spending picture existed only as a pile of
+receipt emails. Each reported separately, by email, into the same inbox the
+sweeper was trying to clean. Reading the reports cost more attention than the
+systems saved.
 
-**Aim, not effort.** Roughly **3% of "data engineer" postings are entry-level**
-(219 of 6,877 sampled, May 2026). "Analytics engineer" is closer to **8%** —
-nearly triple, for a substantially overlapping skill set. Applying harder to the
-first title does not fix that. So the ranking layer scores against a defined
-profile rather than a job title, and the filter layer records *why* it rejected
-every posting it rejected. After a week the kill-rule log says which rules are
-over-firing, which turns "my filters are probably too strict" into a number.
+Now there is one page. It opens from a phone home screen and answers the only
+questions worth asking before coffee: what did I spend, what did I eat, and what
+needs me today.
 
-**Nothing closed the loop.** The old job pipeline prepared applications and the
-old mail sweeper labeled the replies, but neither told the other, so the
-applications table had exactly one row in it. Here, the phase that reads mail is
-the phase that advances the application record.
+**Filing is only safe if something else surfaces what mattered.** Every labeled
+thread leaves the inbox, so the inbox is no longer a place a missed reply would
+catch the eye. That makes the morning report load-bearing rather than a
+convenience, and the report is written against that rule: a thread filed without
+being reported is a thread lost.
 
 ---
 
 ## Architecture
 
-Five phases. Each is a separate scheduled job with its own failure domain.
+Three phases. Each is a separate scheduled job with its own failure domain.
+(There were two more that ingested and scored job postings; they are detached —
+see below.)
 
 ```
-  5:45am  ┌────────────────────────────┐
-  ──────► │ 1a  ingest                 │  GitHub Actions — unrestricted egress
-          │     7 ATS APIs → normalize │  ────────────────────────────────►
-          │     → dedupe → filter      │
-          └────────────────────────────┘                    Postgres
-  6:30am  ┌────────────────────────────┐                   (Supabase)
-  ──────► │ 1b  score & prepare        │                     ▲     │
-          │     rank → cover letters   │  ───────────────────┘     │
-          └────────────────────────────┘                           │
-  7:15am  ┌────────────────────────────┐                           │
-  ──────► │ 2   email sweep            │  ─────────────────────────┤
-          │     label, draft, record   │                           │
-          └────────────────────────────┘                           │
-  7:45am  ┌────────────────────────────┐                           │
-  ──────► │ 2b  calendar drain         │  ─────────────────────────┤
-          └────────────────────────────┘                           │
-  8:00am  ┌────────────────────────────┐                           │
-  ──────► │ 3   build the report       │  ◄────────────────────────┘
+  7:15am  ┌────────────────────────────┐
+  ──────► │ 2   email sweep            │
+          │     label, draft, record   │  ──────────────┐
+          └────────────────────────────┘                │
+  7:45am  ┌────────────────────────────┐                ▼
+  ──────► │ 2b  calendar drain         │  ────────►  Postgres
+          │     intents → events       │            (Supabase)
+          └────────────────────────────┘                │
+  8:00am  ┌────────────────────────────┐                │
+  ──────► │ 3   build the report       │  ◄─────────────┘
           └────────────────────────────┘
                         │
                         ▼
               one page, on a phone, by 8:30
 ```
-
-**Why the runtimes are split.** Ingest needs raw outbound network to hit seven
-different APIs, which is what Actions is good at and free for on public repos.
-The rest need judgment and reach Postgres, Gmail, Drive, and Calendar over
-tooling rather than raw sockets.
 
 **Why the phases are split.** They chain only through the database — no phase
 calls another. Every phase writes a `phase_runs` row on every exit path,
@@ -70,23 +64,12 @@ including a crash. Phase 3 reads the newest row per phase, so a paused or broken
 phase renders as *"nothing changed, last ran 07:15"* rather than an error or a
 blank page. Any phase can be paused, rewritten, or left half-built without
 taking the morning report down with it — which matters, because phase 3 gets
-edited constantly and phase 2b stays inert until some manual setup happens.
+edited constantly. Removing phases 1a and 1b wholesale was a live test of that
+claim, and the other three needed no changes to keep running.
 
 ---
 
 ## What lives in the database
-
-The job pipeline:
-
-| Table | What it holds |
-|---|---|
-| `companies` | 149 validated ATS boards, with the failure counter that deactivates dead ones |
-| `jobs` | Every posting seen. No raw payloads — see below |
-| `job_filters` | Pass/fail **and which rule killed it**. The tuning mechanism |
-| `job_scores` | Two axes: fit 1–10, and whether the role compounds, 1–5 |
-| `applications` | Lifecycle from queued through applied to replied |
-| `email_events` | Replies matched back to an application, and how they were classified |
-| `recruiter_submissions` | Employers an agency already owns, so the filter can avoid a conflict |
 
 Mail, money, and the heartbeat:
 
@@ -114,6 +97,127 @@ durable to write. `food_log` and `nutrition_items` came over when the separate
 Food-Tracker project was folded into this one; the doctor skill takes ownership
 of all three, replacing the earlier food-tracker skill, and an accountant skill
 takes `transactions`.
+
+## Design decisions worth defending
+
+**Nothing labeled gets auto-deleted.** An earlier version trashed flagged
+threads after a week. Deleting a person's unanswered mail on a timer is the kind
+of automation that is only correct until the one time it isn't.
+
+**One writer per destination.** The wedding artifact is updated by phase 2 only,
+because that is where the receipt lands first. Phase 3 mentions the payment and
+writes nothing. Two writers on one page is how a page ends up with a number
+neither of them meant.
+
+**Personal data never enters this repo.** It is public. The wedding vendor list
+lives in a database table rather than a config file, because a vendor list is a
+map of a private life. Gmail label IDs and calendar IDs are here; addresses,
+phone numbers, and vendor names are not. `config/identity.yaml` — a real address
+and phone number, used by detached phase 1 — is gitignored, with an example file
+committed in its place.
+
+**A view is a hole in RLS unless you say otherwise.** Every table has RLS on with
+no policies, which denies everything and is the intended state — only the service
+key reaches this data. But a Postgres view runs as its *owner* by default, and
+the owner here is `postgres`, which has `BYPASSRLS`. Two views were created
+without `security_invoker`, so anyone with the public anon key could read the
+queue — company, title, salary, apply link, and the private `verdict` and
+`concerns` scoring fields — straight through a door the base tables had shut.
+Fixed 2026-09-03. Those particular views are gone with job tracking, but the rule
+stands: `security_invoker = true` on every view in `sql/001_schema.sql`, and any
+view added later needs it too.
+
+---
+
+## Status
+
+The three live phases have been running unattended since 2026-09-01.
+
+| Phase | State | Last verified run |
+|---|---|---|
+| Database schema and retention | Live | — |
+| 2 — email sweep | Live | 11 scanned, 6 labeled, 1 transaction |
+| 2b — calendar drain | Live | no pending intents |
+| 3 — morning report | Live | report published, 2 items needing a human |
+| 1a — ingest, 7 sources | **Detached** 2026-09-04 | 52 tests still green |
+| 1b — score and prepare | **Detached** 2026-09-04 | routine disabled |
+
+---
+
+## Running it
+
+The three live phases are prompts on a scheduler — there is nothing to install
+and nothing to start. The only runnable code is detached phase 1:
+
+```bash
+pip install -e ".[dev]"
+pytest -q && ruff check .
+```
+
+Those 52 tests are pure functions over fixture data and still pass. Everything
+past them needs tables that no longer exist, and the ingest job in CI is gated
+`if: false` so nothing can run it by accident.
+
+## Layout
+
+One folder per phase, so a phase can be debugged, upgraded, or rewritten without
+reading the others. Each has a README explaining what it does and what must not
+be undone.
+
+```
+phase1/   extract  — DETACHED. Job ingest (Python) + the scoring prompt
+phase2/   email    — inbox sweep + calendar drain
+phase3/   present  — the morning report
+config/   shared   — filters and thresholds for detached phase 1
+sql/      shared   — schema, history, and the removal of job tracking
+skills/   shared   — conversational skills over the non-pipeline tables
+```
+
+Phases 2, 2b and 3 are prompts rather than Python: they run as scheduled cloud
+sessions with the Gmail, Drive, and Calendar connectors.
+
+**The routines fetch these prompts from this repo at run time.** Each scheduled
+routine is about ten lines — fetch the raw GitHub URL for its prompt file, follow
+everything after the first `---`, and on a second failed fetch write a failed
+`phase_runs` row and stop rather than improvise. So **editing a prompt file here
+changes live behavior on the next run**, with no scheduler edit. Do not paste a
+prompt body into the scheduler: that creates a second copy, and the two drift
+without anything saying so.
+
+| Phase | Prompt |
+|---|---|
+| 2 | `phase2/routine_2_email.md` |
+| 2b | `phase2/routine_2b_calendar.md` |
+| 3 | `phase3/routine_3_artifact.md` + `phase3/template.html` |
+
+**Every cron in this system is fixed UTC** — all three routines. They need a
+manual one-hour bump when Pacific goes back to standard time in November.
+Written down rather than pretended away.
+
+---
+
+## Job tracking, removed
+
+Until 2026-09-04 this was also a job-application pipeline: seven ATS APIs polled
+nightly, ~10,000 postings normalized and deduped, hard filters that recorded
+*which rule* killed each rejection, an LLM scoring pass on two axes, generated
+cover letters, and five roles surfaced on the morning report with apply links.
+It ran unattended for four days.
+
+It is switched off. The seven tables — `jobs`, `job_filters`, `job_scores`,
+`companies`, `applications`, `email_events`, `recruiter_submissions` — and their
+three views were exported to CSV and dropped (`sql/004_drop_job_tracking.sql`).
+The database went 61 MB → 11 MB.
+
+**The code is still here, detached.** `phase1/` keeps the ingest package, its
+seven source adapters, the filter rules, and the scoring prompt — running on no
+schedule, wired to nothing, reading tables that do not exist. Deleting it would
+have cost the most substantial engineering in the repo to save nothing; a banner
+at the top of `phase1/README.md` says plainly that it is inert and what to
+restore to revive it. The `Jobs` email label survives as an ordinary label.
+
+What is worth keeping from it is the storage lesson, which took two rounds to
+learn.
 
 ### The 228 MB column
 
@@ -150,113 +254,6 @@ Two things follow, and the second is the one that surprised me:
   graph as if it did would send you looking in the wrong place.
 
 ---
-
-## Design decisions worth defending
-
-**It never submits an application.** It goes as far as a cover letter, a scored
-ranking, and a direct apply link. A human clicks submit. That is a product
-decision, not a missing feature — and nothing running in the cloud can drive an
-ATS form honestly anyway.
-
-**Nothing labeled gets auto-deleted.** An earlier version trashed flagged
-threads after a week. Deleting a person's unanswered mail on a timer is the kind
-of automation that is only correct until the one time it isn't.
-
-**Two axes, not one.** A job needs `fit >= 8` **and** `compounding >= 3` to
-queue. Compounding asks whether a year in the seat puts a nameable tool on a
-resume. A high-fit job that fails it is *named in the report* rather than
-silently dropped — those are the tempting ones.
-
-**The kill-rule column is not cleanup debt.** Every rejection records which rule
-rejected it. Dropping rejected rows to save space would delete the only evidence
-of whether the filters are calibrated.
-
-**Personal data never enters this repo.** `config/profile.yaml` holds filters,
-thresholds, and geography and is public. `config/identity.yaml` holds a real
-address and phone number and is gitignored, with an example file committed in
-its place.
-
-**A view is a hole in RLS unless you say otherwise.** Every table has RLS on with
-no policies, which denies everything and is the intended state — only the service
-key reaches this data. But a Postgres view runs as its *owner* by default, and
-the owner here is `postgres`, which has `BYPASSRLS`. Two views were created
-without `security_invoker`, so anyone with the public anon key could read the
-queue — company, title, salary, apply link, and the private `verdict` and
-`concerns` scoring fields — straight through a door the base tables had shut.
-Fixed 2026-09-03; `security_invoker = true` is now set on every view in
-`sql/001_schema.sql`, and any view added later needs it too.
-
----
-
-## Status
-
-All five phases are live and have been running unattended since 2026-09-01.
-
-| Phase | State | Last verified run |
-|---|---|---|
-| Database schema and retention | Live | — |
-| 1a — ingest, 7 sources | Live, 49 tests green | 10,263 fetched → 10,074 upserted → 700 passed |
-| 1b — score and prepare | Live | 40 scored, backlog 4 |
-| 2 — email sweep | Live | 11 scanned, 6 labeled, 1 transaction |
-| 2b — calendar drain | Live | no pending intents |
-| 3 — morning report | Live | report published, 2 items needing a human |
-
-Source coverage is honest about itself: Greenhouse, Lever, Ashby, Remotive, and
-RemoteOK are verified against live boards. Workable's response shape is
-confirmed but no populated board turned up in sampling. Recruitee is unverified.
-
----
-
-## Running it
-
-```bash
-pip install -e ".[dev]"
-pytest -q && ruff check .
-
-# Sources only, no database writes:
-tracking-engine-ingest --dry-run
-```
-
-A real run needs `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`. In CI they are repo
-secrets, and the ingest job is gated to `schedule` and `workflow_dispatch` so a
-push never writes to the database or needs them.
-
-## Layout
-
-One folder per phase, so a phase can be debugged, upgraded, or rewritten without
-reading the others. Each has a README explaining what it does and what must not
-be undone.
-
-```
-phase1/   extract  — ingest (Python, Actions) + the scoring routine
-phase2/   email    — inbox sweep + calendar drain
-phase3/   present  — the morning report
-config/   shared   — filters and thresholds (public), identity (gitignored)
-sql/      shared   — schema, the one-time migration, retention
-skills/   shared   — conversational skills over the non-pipeline tables
-```
-
-Phases 1b, 2, 2b and 3 are prompts rather than Python: they run as scheduled
-cloud sessions with the Gmail, Drive, and Calendar connectors.
-
-**The routines fetch these prompts from this repo at run time.** Each scheduled
-routine is about ten lines — fetch the raw GitHub URL for its prompt file, follow
-everything after the first `---`, and on a second failed fetch write a failed
-`phase_runs` row and stop rather than improvise. So **editing a prompt file here
-changes live behavior on the next run**, with no scheduler edit. Do not paste a
-prompt body into the scheduler: that creates a second copy, and the two drift
-without anything saying so.
-
-| Phase | Prompt |
-|---|---|
-| 1b | `phase1/routine_1b_score.md` |
-| 2 | `phase2/routine_2_email.md` |
-| 2b | `phase2/routine_2b_calendar.md` |
-| 3 | `phase3/routine_3_artifact.md` + `phase3/template.html` |
-
-**Every cron in this system is fixed UTC** — the four routines and the Actions
-workflow. All five need a manual one-hour bump when Pacific goes back to standard
-time in November. Written down rather than pretended away.
 
 ## License
 

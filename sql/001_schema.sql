@@ -2,158 +2,24 @@
 -- tracking-engine schema
 --
 -- The full current shape of the Tracking-Engine Supabase project. Running this
--- against an empty database reproduces the system; 002 is the one-time move
--- from the old apply-engine layout and is not needed for a fresh install.
+-- against an empty database reproduces the system.
+--
+-- This is the shape AFTER 004, the removal of job tracking, applied to the live
+-- database on 2026-09-04. It no longer creates the seven job tables. 002 and 003
+-- are kept only as the historical record of how the database got here -- do not
+-- run them against a fresh install.
+--
+-- Everything here is written by a scheduled cloud routine or a skill, and read
+-- by the morning report. Phase 1 still exists in this repo but is detached and
+-- writes to nothing; see phase1/README.md.
 --
 -- Design notes worth knowing before changing anything:
---   * jobs is append-mostly during a posting's life; last_seen_at tracks whether
---     it is still live. Retention (003) eventually removes postings that went
---     stale without ever being scored.
---   * There is deliberately no `raw` payload column. It once held 228 MB of a
---     252 MB database -- 90% of the free tier -- for data nothing read.
---     Descriptions are stored as text, capped at 4,000 characters.
---   * job_filters.kill_rule is the tuning mechanism. Every rejection records
---     WHICH rule rejected it, so false-positive rates are measurable instead of
---     anecdotal. Do not "clean up" by dropping rejected rows.
---   * job_scores keeps history for jobs that never queued. Same reason.
+--   * A view is a hole in RLS unless you say otherwise. Every view here sets
+--     security_invoker = true, and any view added later needs it too -- see the
+--     note in README.md.
+--   * The revoke block at the bottom is load-bearing. Read it before adding a
+--     table or a policy.
 -- ---------------------------------------------------------------------------
-
--- companies we poll
-create table if not exists companies (
-  id          bigserial primary key,
-  name        text not null,
-  ats         text not null check (ats in ('greenhouse','lever','ashby','workable','recruitee')),
-  slug        text not null,
-  tier        int  not null default 2,      -- 1 = check first, 3 = long tail
-  active      bool not null default true,
-  last_ok_at  timestamptz,
-  fail_count  int  not null default 0,
-  unique (ats, slug)
-);
-
--- every posting we've ever seen
-create table if not exists jobs (
-  id              bigserial primary key,
-  source          text not null,             -- 'greenhouse' | 'adzuna' | 'usajobs' | ...
-  source_job_id   text not null,
-  company         text not null,
-  title           text not null,
-  location_raw    text,
-  region          text,                      -- 'remote-us' | 'ca-norcal' | 'ca-other' | 'wa' | 'other'
-  employment_type text,                      -- 'full_time' | 'contract' | 'c2h' | 'part_time' | 'intern'
-  salary_min      int,
-  salary_max      int,
-  description     text,
-  apply_url       text not null,
-  posted_at       timestamptz,
-  first_seen_at   timestamptz not null default now(),
-  last_seen_at    timestamptz not null default now(),
-  unique (source, source_job_id)
-);
-create index if not exists jobs_first_seen_idx on jobs (first_seen_at desc);
-create index if not exists jobs_company_title_idx on jobs (company, title);
-
--- Cross-source dedupe -- the same posting appearing on Greenhouse and on an
--- aggregator under different ids -- is resolved in Python by normalize.dedupe()
--- before the upsert runs, so there is deliberately no index for it here. The
--- uniqueness the database enforces is the (source, source_job_id) constraint
--- above. An index on lower(company)/lower(title)/lower(location) existed until
--- 2026-09-03 and was dropped after never being scanned once: it cost 1.6 MB and
--- write amplification on ~10k nightly upserts to answer a question nothing asks.
-
--- hard-filter outcome, written by ingest
-create table if not exists job_filters (
-  job_id      bigint primary key references jobs(id) on delete cascade,
-  passed      bool not null,
-  kill_rule   text,                           -- which rule killed it, for tuning
-  filtered_at timestamptz not null default now()
-);
-create index if not exists job_filters_kill_rule_idx on job_filters (kill_rule)
-  where kill_rule is not null;
-
--- LLM score, written by the daily scheduled task
-create table if not exists job_scores (
-  job_id       bigint primary key references jobs(id) on delete cascade,
-  fit          int  not null check (fit between 1 and 10),
-  compounding  int  not null check (compounding between 1 and 5),
-  title_bucket text,                          -- 'analytics_eng' | 'data_analyst' | ...
-  verdict      text not null,                 -- one sentence, shown in the digest
-  builds       text,                          -- what the role adds to the resume
-  concerns     text,
-  soft_flags   text[],
-  scored_at    timestamptz not null default now(),
-  model        text
-);
-
--- ---------------------------------------------------------------------------
--- Recruiter conflict guard.
---
--- If a staffing agency has submitted Adrien to an employer, applying directly
--- to that employer typically disqualifies him outright, and some employers
--- impose a 6-12 month blackout across the whole company. This table is
--- maintained BY HAND on purpose: a manual insert is the right amount of
--- friction for something this consequential, and there is no reliable way to
--- detect a submission automatically.
---
--- Add a row right after a recruiter call:
---   insert into recruiter_submissions (client_name, agency, role_title, submitted_at)
---   values ('Blue Shield of California', 'TEKsystems', 'Reporting Analyst', current_date);
--- ---------------------------------------------------------------------------
-create table if not exists recruiter_submissions (
-  id            bigserial primary key,
-  client_name   text not null,          -- the EMPLOYER, not the agency
-  client_domain text,                   -- optional, improves matching
-  agency        text not null,          -- e.g. 'TEKsystems'
-  recruiter     text,
-  role_title    text,
-  submitted_at  date not null,
-  expires_at    date,                   -- defaults to submitted_at + 180 days
-  active        bool not null default true,
-  notes         text
-);
-create index if not exists recruiter_submissions_client_idx
-  on recruiter_submissions (lower(client_name));
-
-create or replace function set_recruiter_submission_expiry()
-returns trigger language plpgsql as $$
-begin
-  if new.expires_at is null then
-    new.expires_at := new.submitted_at + interval '180 days';
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists recruiter_submissions_expiry on recruiter_submissions;
-create trigger recruiter_submissions_expiry
-  before insert on recruiter_submissions
-  for each row execute function set_recruiter_submission_expiry();
-
--- the queue and its afterlife
-create table if not exists applications (
-  id              bigserial primary key,
-  job_id          bigint not null unique references jobs(id) on delete cascade,
-  status          text not null default 'queued'
-                  check (status in ('queued','skipped','applied','screen','interview','offer','rejected','ghosted')),
-  skip_reason     text,                       -- e.g. 'recruiter_conflict: TEKsystems 2026-08-14'
-  queued_at       timestamptz not null default now(),
-  applied_at      timestamptz,
-  resume_url      text,                       -- Google Drive link
-  cover_url       text,
-  last_contact_at timestamptz,
-  notes           text
-);
-create index if not exists applications_status_idx on applications (status);
-
--- replies detected in Gmail
-create table if not exists email_events (
-  id              bigserial primary key,
-  application_id  bigint references applications(id) on delete cascade,
-  gmail_thread_id text not null unique,
-  classified_as   text not null check (classified_as in ('rejection','screen','interview','offer','other')),
-  subject         text,
-  received_at     timestamptz not null
-);
 
 -- ---------------------------------------------------------------------------
 -- Phase telemetry.
@@ -164,7 +30,10 @@ create table if not exists email_events (
 -- ---------------------------------------------------------------------------
 create table if not exists phase_runs (
   id          bigserial primary key,
-  phase       text not null check (phase in ('1a','1b','2','2b','3')),
+  -- The live database still allows '1a' and '1b': historical rows carry those
+  -- values and tightening the constraint would have rejected them. A fresh
+  -- install has no such rows, so the narrow check is correct for one.
+  phase       text not null check (phase in ('2','2b','3')),
   started_at  timestamptz not null default now(),
   finished_at timestamptz,
   status      text not null default 'running'
@@ -175,54 +44,6 @@ create table if not exists phase_runs (
 );
 create index if not exists phase_runs_phase_started_idx
   on phase_runs (phase, started_at desc);
-
--- ---------------------------------------------------------------------------
--- Views
--- ---------------------------------------------------------------------------
-
--- Columns are listed rather than j.*: an expanded star pins every column into
--- the view definition, which is what blocked dropping jobs.raw.
--- security_invoker: without it a view runs as its owner (postgres, which has
--- BYPASSRLS), so it reads straight past the RLS that protects every base table
--- below. These two views were the only way the anon key could read this data
--- until 2026-09-03. Any view added here needs this too.
-create or replace view v_queue with (security_invoker = true) as
-  select a.id as application_id, a.status, a.cover_url, a.queued_at,
-         j.id, j.source, j.source_job_id, j.company, j.title, j.location_raw,
-         j.region, j.employment_type, j.salary_min, j.salary_max, j.description,
-         j.apply_url, j.posted_at, j.first_seen_at, j.last_seen_at,
-         s.fit, s.compounding, s.verdict,
-         s.builds, s.concerns, s.title_bucket
-  from applications a
-  join jobs j       on j.id = a.job_id
-  join job_scores s on s.job_id = j.id
-  where a.status = 'queued'
-  order by s.fit desc, j.first_seen_at desc;
-
--- The same queue plus a staleness flag. A posting the nightly ingest has not
--- re-seen in 7 days is probably closed, so phase 3 retires it rather than
--- surfacing an apply link that 404s.
--- Columns listed rather than q.*, for the same reason as v_queue above.
-create or replace view v_queue_live with (security_invoker = true) as
-  select q.application_id, q.status, q.cover_url, q.queued_at,
-         q.id, q.source, q.source_job_id, q.company, q.title, q.location_raw,
-         q.region, q.employment_type, q.salary_min, q.salary_max, q.description,
-         q.apply_url, q.posted_at, q.first_seen_at, q.last_seen_at,
-         q.fit, q.compounding, q.verdict, q.builds, q.concerns, q.title_bucket,
-         j.last_seen_at as seen_at,
-         (now() - j.last_seen_at) > interval '7 days' as likely_closed
-  from v_queue q
-  join jobs j on j.id = q.id;
-
--- Employers currently owned by an agency. The filter reads this, not the base
--- table, so expiry and deactivation are handled in one place.
-create or replace view v_blocked_employers with (security_invoker = true) as
-  select lower(client_name) as client_key, client_name, client_domain,
-         agency, role_title, submitted_at, expires_at
-  from recruiter_submissions
-  where active = true
-    and (expires_at is null or expires_at >= current_date);
-
 
 -- ---------------------------------------------------------------------------
 -- Phase 2 and 3 tables.
@@ -366,16 +187,56 @@ create index if not exists health_log_person_date_idx on health_log (person, dat
 create index if not exists health_log_type_status_idx on health_log (entry_type, status);
 
 -- ---------------------------------------------------------------------------
--- RLS on with no policies: only the service key reaches these tables, and the
--- service key lives in GitHub Actions secrets and the routine connectors.
+-- Retention.
+--
+-- Lives here rather than in 003 because 003 is historical: its version deleted
+-- from `jobs` and is superseded. Ingest used to write ~10k postings a night and
+-- this existed to keep the 500 MB free tier out of reach; with job tracking gone
+-- the database barely grows, but phase 2 still writes an email_actions row per
+-- thread every morning, so the trim stays. Phase 2 calls it at the end of its
+-- sweep, since phase 1a -- its previous caller -- no longer runs.
+--
+-- Worth keeping from the note in 003: retention was never what bounded database
+-- size. TOAST churn was, and `vacuum (full, analyze)` was the lever. Nothing
+-- here rewrites 10k rows a night any more, so that problem is gone with it.
 -- ---------------------------------------------------------------------------
-alter table companies             enable row level security;
-alter table jobs                  enable row level security;
-alter table job_filters           enable row level security;
-alter table job_scores            enable row level security;
-alter table recruiter_submissions enable row level security;
-alter table applications          enable row level security;
-alter table email_events          enable row level security;
+create or replace function public.prune_old_data()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  runs_deleted    int;
+  actions_deleted int;
+  db_bytes        bigint;
+begin
+  delete from phase_runs where started_at < now() - interval '90 days';
+  get diagnostics runs_deleted = row_count;
+
+  delete from email_actions where acted_at < now() - interval '90 days';
+  get diagnostics actions_deleted = row_count;
+
+  select pg_database_size(current_database()) into db_bytes;
+
+  return jsonb_build_object(
+    'phase_runs_deleted',    runs_deleted,
+    'email_actions_deleted', actions_deleted,
+    'db_bytes',              db_bytes,
+    'db_pretty',             pg_size_pretty(db_bytes),
+    -- Phase 3 paints a warning card when this is true.
+    'over_threshold',        db_bytes > 350 * 1024 * 1024
+  );
+end;
+$$;
+
+revoke all on function public.prune_old_data() from public, anon, authenticated;
+grant execute on function public.prune_old_data() to service_role;
+
+-- ---------------------------------------------------------------------------
+-- RLS on with no policies: only the service key reaches these tables, and the
+-- service key lives in the routine connectors.
+-- ---------------------------------------------------------------------------
 alter table phase_runs            enable row level security;
 alter table accounts              enable row level security;
 alter table transactions          enable row level security;
