@@ -153,13 +153,13 @@ def skip_for_recruiter_conflict(
 # Phase telemetry
 # ---------------------------------------------------------------------------
 #
-# Every phase writes one `phase_runs` row, and phase 3 reads the newest row per
+# Every phase writes one `engine_phase_runs` row, and phase 3 reads the newest row per
 # phase to build the artifact. This is what lets a paused phase render as
 # "nothing changed, last ran <time>" instead of an error or a blank card, which
 # is the whole reason the phases can be paused independently.
 
 def start_run(db: Client, phase: str) -> int:
-    response = db.table("phase_runs").insert({"phase": phase}).execute()
+    response = db.table("engine_phase_runs").insert({"phase": phase}).execute()
     return response.data[0]["id"]
 
 
@@ -174,7 +174,7 @@ def finish_run(
     A run that dies without writing a row looks identical to a run that never
     fired, and a pipeline that fails silently is worse than no pipeline.
     """
-    db.table("phase_runs").update(
+    db.table("engine_phase_runs").update(
         {
             "finished_at": datetime.now(UTC).isoformat(),
             "status": "ok" if ok else "failed",

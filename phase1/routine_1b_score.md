@@ -74,7 +74,7 @@ and write there.
 ## Step 1 — open the run row
 
 ```sql
-insert into phase_runs (phase) values ('1b') returning id;
+insert into engine_phase_runs (phase) values ('1b') returning id;
 ```
 
 Keep the id. You MUST close it in Step 7 on every exit path, success or failure.
@@ -299,7 +299,7 @@ connect it to one concrete thing from his background, and never invent a fact.
 ## Step 7 — close the run row
 
 ```sql
-update phase_runs set finished_at = now(), status = 'ok',
+update engine_phase_runs set finished_at = now(), status = 'ok',
   counts = '{"scored": N, "queued": N, "prepared": N, "max_fit": N, "backlog": N, "retired_closed": N}'::jsonb,
   summary = '{"skipped_high_fit_low_compounding": [...], "closest_misses": [...], "failures": [...]}'::jsonb
 where id = <run id>;
@@ -315,7 +315,7 @@ that failed. Set `status = 'failed'` with the error text in
 
 - Two-retry cap on any mechanical operation. Then stop that piece, leave data
   untouched, and record it in the summary.
-- Write only to `job_scores`, `applications`, and `phase_runs`. Never touch
+- Write only to `job_scores`, `applications`, and `engine_phase_runs`. Never touch
   `jobs`, `job_filters`, or `companies` — phase 1a owns those. Never touch
   `recruiter_submissions`; Adrien maintains it by hand on purpose.
 - Send no email and create no drafts. Phase 2 owns Gmail; phase 3 owns the

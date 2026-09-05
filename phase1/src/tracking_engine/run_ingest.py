@@ -7,7 +7,7 @@ No scoring and no tailoring happen here. Those need judgment and run in phase
 1b at 06:30 PT, which reads what this wrote and can also dispatch this workflow
 directly rather than trusting the Actions scheduler.
 
-This process must write a `phase_runs` row on every exit path, including a
+This process must write a `engine_phase_runs` row on every exit path, including a
 crash. Phase 3 renders its absence as "did not run" rather than failing.
 """
 

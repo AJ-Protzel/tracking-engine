@@ -59,7 +59,7 @@ see below.)
 ```
 
 **Why the phases are split.** They chain only through the database — no phase
-calls another. Every phase writes a `phase_runs` row on every exit path,
+calls another. Every phase writes an `engine_phase_runs` row on every exit path,
 including a crash. Phase 3 reads the newest row per phase, so a paused or broken
 phase renders as *"nothing changed, last ran 07:15"* rather than an error or a
 blank page. Any phase can be paused, rewritten, or left half-built without
@@ -71,32 +71,53 @@ claim, and the other three needed no changes to keep running.
 
 ## What lives in the database
 
+**Every table is prefixed with what owns it.** This is a rule, not decoration:
+a skill is told *"you own every table named `doctor_*`"* rather than handed a
+list of names, so a table added later is picked up with no skill edit. An
+enumerated list in a skill description is the thing that goes stale.
+
+| Prefix | Owner | Meaning |
+|---|---|---|
+| `doctor_` | the doctor skill | food, nutrition reference, health entries |
+| `accountant_` | the accountant skill | money, accounts, wedding vendors |
+| `engine_` | no skill — the pipeline | phases 2, 2b and 3 read and write these; a skill should leave them alone |
+
+Ownership means *whose data this is*, not who writes it.
+`accountant_transactions` is written by phase 2's email sweep and only read by
+the accountant. `doctor_food_log` is written by the doctor skill and read by
+phase 3 to draw the nutrition card.
+
+Underscores rather than spaces or hyphens, because `"doctor - food_log"` is not
+a valid bare identifier and would need double quotes in every statement forever.
+The phases write SQL by hand each morning, and one forgotten quote is a failed
+unattended run.
+
 Mail, money, and the heartbeat:
 
 | Table | What it holds |
 |---|---|
-| `email_actions` | What the sweep did, per thread — the sweep is auditable |
-| `blocklist` | Repeat junk senders, and the dates that earned them the label |
-| `calendar_intents` | Events phase 2 wants; phase 2b creates them |
-| `transactions` | Names, dates, amounts, accounts. Never a card number |
-| `accounts` | Account names only, for `transactions` to reference |
-| `wedding_vendors` | Vendor names behind the wedding-tagged transactions |
-| `phase_runs` | The heartbeat every phase writes and phase 3 reads |
+| `engine_email_actions` | What the sweep did, per thread — the sweep is auditable |
+| `engine_blocklist` | Repeat junk senders, and the dates that earned them the label |
+| `engine_calendar_intents` | Events phase 2 wants; phase 2b creates them |
+| `accountant_transactions` | Names, dates, amounts, accounts. Never a card number |
+| `accountant_accounts` | Account names only, for `accountant_transactions` to reference |
+| `accountant_wedding_vendors` | Vendor names behind the wedding-tagged transactions |
+| `engine_phase_runs` | The heartbeat every phase writes and phase 3 reads |
 
 Read and written by skills rather than by a phase:
 
 | Table | What it holds |
 |---|---|
-| `food_log` | One row per meal eaten, already summed if it was a combo |
-| `nutrition_items` | Reference macros, one row per ingredient |
-| `health_log` | Symptoms, vitals, medications and events |
+| `doctor_food_log` | One row per meal eaten, already summed if it was a combo |
+| `doctor_nutrition_items` | Reference macros, one row per ingredient |
+| `doctor_health_log` | Symptoms, vitals, medications and events |
 
 These three carry no pipeline dependency — no phase reads them. They exist so the
 report has something to render and so a conversational skill has somewhere
-durable to write. `food_log` and `nutrition_items` came over when the separate
+durable to write. `doctor_food_log` and `doctor_nutrition_items` came over when the separate
 Food-Tracker project was folded into this one; the doctor skill takes ownership
 of all three, replacing the earlier food-tracker skill, and an accountant skill
-takes `transactions`.
+takes `accountant_transactions`.
 
 ## Design decisions worth defending
 
@@ -115,6 +136,13 @@ map of a private life. Gmail label IDs and calendar IDs are here; addresses,
 phone numbers, and vendor names are not. `config/identity.yaml` — a real address
 and phone number, used by detached phase 1 — is gitignored, with an example file
 committed in its place.
+
+**A rename does not reach inside a function.** A plpgsql body is stored as text
+and resolved at call time, so `alter table ... rename` left `prune_old_data()`
+still pointing at `phase_runs` after every rename in `sql/005` had succeeded. It
+would have failed at the end of the next sweep, long after the migration looked
+like it worked. Recreating dependent functions is part of a rename, not a
+follow-up — and the same goes for views, triggers, and policies.
 
 **A view is a hole in RLS unless you say otherwise.** Every table has RLS on with
 no policies, which denies everything and is the intended state — only the service
@@ -169,7 +197,7 @@ phase1/   extract  — DETACHED. Job ingest (Python) + the scoring prompt
 phase2/   email    — inbox sweep + calendar drain
 phase3/   present  — the morning report
 config/   shared   — filters and thresholds for detached phase 1
-sql/      shared   — schema, history, and the removal of job tracking
+sql/      shared   — schema, history, job removal, and the naming convention
 skills/   shared   — conversational skills over the non-pipeline tables
 ```
 
@@ -179,7 +207,7 @@ sessions with the Gmail, Drive, and Calendar connectors.
 **The routines fetch these prompts from this repo at run time.** Each scheduled
 routine is about ten lines — fetch the raw GitHub URL for its prompt file, follow
 everything after the first `---`, and on a second failed fetch write a failed
-`phase_runs` row and stop rather than improvise. So **editing a prompt file here
+`engine_phase_runs` row and stop rather than improvise. So **editing a prompt file here
 changes live behavior on the next run**, with no scheduler edit. Do not paste a
 prompt body into the scheduler: that creates a second copy, and the two drift
 without anything saying so.

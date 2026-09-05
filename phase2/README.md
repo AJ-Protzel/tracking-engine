@@ -16,13 +16,13 @@ that wants one.
 
 Two things it does that the old sweeper did not:
 
-- **Money In / Money Out threads become `transactions` rows.** An interim feed
+- **Money In / Money Out threads become `accountant_transactions` rows.** An interim feed
   until real account access exists. It only catches what emails a receipt, and
   the report says so rather than implying the picture is complete.
-- **Threads with a real date and time become `calendar_intents` rows** for 2b.
+- **Threads with a real date and time become `engine_calendar_intents` rows** for 2b.
 
-Writes an `email_actions` row per thread, which is what makes the sweep
-auditable after the fact, and one `phase_runs` row. Sends no email — the report
+Writes an `engine_email_actions` row per thread, which is what makes the sweep
+auditable after the fact, and one `engine_phase_runs` row. Sends no email — the report
 replaced the digest.
 
 ### Nothing labeled is ever auto-deleted
@@ -32,12 +32,12 @@ seven days. That is removed. Deleting a person's unanswered mail on a timer is
 only correct until the one time it isn't.
 
 Two automatic trash paths remain, both deliberate: senders marked `Blocked` in
-the `blocklist` table, and newsletters trashed the same day after being
+the `engine_blocklist` table, and newsletters trashed the same day after being
 summarized.
 
 ## 2b — calendar drain · 7:45am PT · `routine_2b_calendar.md`
 
-Reads pending `calendar_intents` and creates the events. Split from the sweep so
+Reads pending `engine_calendar_intents` and creates the events. Split from the sweep so
 a calendar outage cannot take the inbox pass down with it — and so intents queue
 harmlessly while the calendars don't exist yet.
 

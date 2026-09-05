@@ -28,7 +28,7 @@
 -- decide whether a card says "nothing changed" or "did not run" -- which is
 -- what lets any phase be paused without the morning report looking broken.
 -- ---------------------------------------------------------------------------
-create table if not exists phase_runs (
+create table if not exists engine_phase_runs (
   id          bigserial primary key,
   -- The live database still allows '1a' and '1b': historical rows carry those
   -- values and tightening the constraint would have rejected them. A fresh
@@ -43,14 +43,14 @@ create table if not exists phase_runs (
   error       text
 );
 create index if not exists phase_runs_phase_started_idx
-  on phase_runs (phase, started_at desc);
+  on engine_phase_runs (phase, started_at desc);
 
 -- ---------------------------------------------------------------------------
 -- Phase 2 and 3 tables.
 -- ---------------------------------------------------------------------------
 
 -- Account names only. No card or account numbers, ever.
-create table if not exists accounts (
+create table if not exists accountant_accounts (
   id         bigserial primary key,
   name       text not null unique,            -- e.g. 'Chase Checking'
   kind       text not null default 'checking'
@@ -62,7 +62,7 @@ create table if not exists accounts (
 -- Written by phase 2 from Money In / Money Out email, and later from a CSV
 -- export. Only catches what emails a receipt, which the artifact says plainly
 -- rather than implying the picture is complete.
-create table if not exists transactions (
+create table if not exists accountant_transactions (
   id          bigserial primary key,
   account_id  bigint references accounts(id) on delete set null,
   date        date not null,
@@ -76,13 +76,13 @@ create table if not exists transactions (
   external_id text unique,                    -- makes re-imports idempotent
   created_at  timestamptz not null default now()
 );
-create index if not exists transactions_date_idx on transactions (date desc);
+create index if not exists transactions_date_idx on accountant_transactions (date desc);
 
 -- What phase 2 did, per thread. Feeds the artifact's email card and makes the
 -- sweep auditable after the fact.
-create table if not exists email_actions (
+create table if not exists engine_email_actions (
   id              bigserial primary key,
-  run_id          bigint references phase_runs(id) on delete set null,
+  run_id          bigint references engine_phase_runs(id) on delete set null,
   gmail_thread_id text not null,
   action          text not null
                   check (action in ('labeled','drafted','trashed','spam_rescued','blocked','skipped')),
@@ -91,14 +91,14 @@ create table if not exists email_actions (
   note            text,                       -- newsletter gist, draft From address
   acted_at        timestamptz not null default now()
 );
-create index if not exists email_actions_acted_idx on email_actions (acted_at desc);
--- prune_old_data() deletes aged phase_runs rows, and each delete forces an FK
+create index if not exists email_actions_acted_idx on engine_email_actions (acted_at desc);
+-- prune_old_data() deletes aged engine_phase_runs rows, and each delete forces an FK
 -- recheck against this table. Cheap to carry, and this table only grows.
-create index if not exists email_actions_run_id_idx on email_actions (run_id);
+create index if not exists email_actions_run_id_idx on engine_email_actions (run_id);
 
 -- Senders to watch or trash on sight. Lifted out of a Google Drive CSV so that
 -- no phase depends on a file that can be moved, renamed, or half-written.
-create table if not exists blocklist (
+create table if not exists engine_blocklist (
   sender_email text primary key,
   trash_dates  date[] not null default '{}',
   status       text not null default 'Watching' check (status in ('Watching','Blocked')),
@@ -109,7 +109,7 @@ create table if not exists blocklist (
 -- Phase 2 writes the intent; phase 2b creates the calendar event. Split so a
 -- calendar outage cannot take the email sweep down with it, and so intents
 -- queue harmlessly until the Google calendars exist.
-create table if not exists calendar_intents (
+create table if not exists engine_calendar_intents (
   id              bigserial primary key,
   gmail_thread_id text not null,
   calendar        text not null,              -- Work | Health | Holiday | Wedding | Birthday | Claude
@@ -129,7 +129,7 @@ create table if not exists calendar_intents (
 -- Wedding vendor names live in the database, not in config/, because this repo
 -- is public and a vendor list is a map of a private life. Phase 2 reads it to
 -- decide whether a transaction is wedding-related.
-create table if not exists wedding_vendors (
+create table if not exists accountant_wedding_vendors (
   name       text primary key,
   note       text,
   created_at timestamptz not null default now()
@@ -139,7 +139,7 @@ create table if not exists wedding_vendors (
 -- Food tracking, moved in from the separate Food-Tracker project so one
 -- database backs the whole morning report. Shapes are unchanged.
 -- ---------------------------------------------------------------------------
-create table if not exists nutrition_items (
+create table if not exists doctor_nutrition_items (
   id        uuid primary key default gen_random_uuid(),
   item      text not null,
   serving   text not null,
@@ -150,7 +150,7 @@ create table if not exists nutrition_items (
   sugar_g   numeric
 );
 
-create table if not exists food_log (
+create table if not exists doctor_food_log (
   id        uuid primary key default gen_random_uuid(),
   meal      text not null,
   person    text not null check (person in ('Adrien','Ashley')),
@@ -161,11 +161,11 @@ create table if not exists food_log (
   fat_g     numeric,
   sugar_g   numeric
 );
-create index if not exists food_log_date_idx on food_log (date desc);
+create index if not exists food_log_date_idx on doctor_food_log (date desc);
 
 -- Symptoms, vitals, medications and events, one row per entry. Read and written
--- by the doctor skill, which also owns food_log and nutrition_items above.
-create table if not exists health_log (
+-- by the doctor skill, which also owns doctor_food_log and doctor_nutrition_items above.
+create table if not exists doctor_health_log (
   id              uuid primary key default gen_random_uuid(),
   person          text not null default 'Adrien' check (person in ('Adrien','Ashley')),
   date            date not null default current_date,
@@ -183,8 +183,8 @@ create table if not exists health_log (
   suspected_cause text,
   notes           text
 );
-create index if not exists health_log_person_date_idx on health_log (person, date desc);
-create index if not exists health_log_type_status_idx on health_log (entry_type, status);
+create index if not exists health_log_person_date_idx on doctor_health_log (person, date desc);
+create index if not exists health_log_type_status_idx on doctor_health_log (entry_type, status);
 
 -- ---------------------------------------------------------------------------
 -- Retention.
@@ -192,7 +192,7 @@ create index if not exists health_log_type_status_idx on health_log (entry_type,
 -- Lives here rather than in 003 because 003 is historical: its version deleted
 -- from `jobs` and is superseded. Ingest used to write ~10k postings a night and
 -- this existed to keep the 500 MB free tier out of reach; with job tracking gone
--- the database barely grows, but phase 2 still writes an email_actions row per
+-- the database barely grows, but phase 2 still writes an engine_email_actions row per
 -- thread every morning, so the trim stays. Phase 2 calls it at the end of its
 -- sweep, since phase 1a -- its previous caller -- no longer runs.
 --
@@ -211,10 +211,10 @@ declare
   actions_deleted int;
   db_bytes        bigint;
 begin
-  delete from phase_runs where started_at < now() - interval '90 days';
+  delete from engine_phase_runs where started_at < now() - interval '90 days';
   get diagnostics runs_deleted = row_count;
 
-  delete from email_actions where acted_at < now() - interval '90 days';
+  delete from engine_email_actions where acted_at < now() - interval '90 days';
   get diagnostics actions_deleted = row_count;
 
   select pg_database_size(current_database()) into db_bytes;
@@ -237,16 +237,16 @@ grant execute on function public.prune_old_data() to service_role;
 -- RLS on with no policies: only the service key reaches these tables, and the
 -- service key lives in the routine connectors.
 -- ---------------------------------------------------------------------------
-alter table phase_runs            enable row level security;
-alter table accounts              enable row level security;
-alter table transactions          enable row level security;
-alter table email_actions         enable row level security;
-alter table blocklist             enable row level security;
-alter table calendar_intents      enable row level security;
-alter table wedding_vendors       enable row level security;
-alter table nutrition_items       enable row level security;
-alter table food_log              enable row level security;
-alter table health_log            enable row level security;
+alter table engine_phase_runs            enable row level security;
+alter table accountant_accounts              enable row level security;
+alter table accountant_transactions          enable row level security;
+alter table engine_email_actions         enable row level security;
+alter table engine_blocklist             enable row level security;
+alter table engine_calendar_intents      enable row level security;
+alter table accountant_wedding_vendors       enable row level security;
+alter table doctor_nutrition_items       enable row level security;
+alter table doctor_food_log              enable row level security;
+alter table doctor_health_log            enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- RLS with no policies denies reads, but it does not remove the table GRANTs

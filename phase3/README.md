@@ -16,16 +16,16 @@ Cards:
 
 | Card | Source |
 |---|---|
-| Finances | `transactions`. Renders empty and says so until data exists |
-| Email | `email_actions` from today's sweep |
-| Food | `food_log`, both people, last 7 days |
-| Phase health | Newest `phase_runs` row per phase |
+| Finances | `accountant_transactions`. Renders empty and says so until data exists |
+| Email | `engine_email_actions` from today's sweep |
+| Food | `doctor_food_log`, both people, last 7 days |
+| Phase health | Newest `engine_phase_runs` row per phase |
 
 ## The part that matters most
 
 **This phase never fails because another phase didn't run.**
 
-It reads the newest `phase_runs` row for each phase and renders accordingly:
+It reads the newest `engine_phase_runs` row for each phase and renders accordingly:
 
 - row says `ok` → show the data
 - row says `ok` but nothing happened → *"nothing changed"*
@@ -36,7 +36,7 @@ That distinction is the whole reason the phases are separate folders and
 separate schedules. Pausing phase 2 for a week should cost one card, not the
 morning report.
 
-Same rule for the data itself: an empty `transactions` table draws an empty
+Same rule for the data itself: an empty `accountant_transactions` table draws an empty
 graph that says it is waiting for data. It does not draw nothing, and it does
 not throw.
 

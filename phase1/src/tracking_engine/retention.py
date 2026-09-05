@@ -30,7 +30,7 @@ def prune(db: Client) -> dict[str, Any]:
     result = response.data or {}
 
     log.info(
-        "Retention: %s jobs, %s phase_runs, %s email_actions deleted; database %s",
+        "Retention: %s jobs, %s engine_phase_runs, %s engine_email_actions deleted; database %s",
         result.get("jobs_deleted"),
         result.get("phase_runs_deleted"),
         result.get("email_actions_deleted"),

@@ -16,13 +16,13 @@ email.
 
 Supabase: the `supabase` connector, project_id `qarwswpnzignofrwdqye`.
 **Read-only.** Only SELECT — never INSERT, UPDATE, DELETE, or DDL, with the one
-exception of your own `phase_runs` row.
+exception of your own `engine_phase_runs` row.
 
 ## The rule this phase exists to honor
 
 **Never fail because another phase did not run.** Render whatever is there.
 
-For each phase, read its newest `phase_runs` row and render accordingly:
+For each phase, read its newest `engine_phase_runs` row and render accordingly:
 
 | What you find | What the card says |
 |---|---|
@@ -35,13 +35,13 @@ For each phase, read its newest `phase_runs` row and render accordingly:
 "Nothing changed" and "did not run" are different problems, and the whole design
 rests on the report telling them apart. Never collapse them into a blank card.
 
-Same for data: an empty `transactions` table draws an empty graph that says it is
+Same for data: an empty `accountant_transactions` table draws an empty graph that says it is
 waiting for data. It does not draw nothing and it does not throw.
 
 ## Step 1 — open the run row
 
 ```sql
-insert into phase_runs (phase) values ('3') returning id;
+insert into engine_phase_runs (phase) values ('3') returning id;
 ```
 
 Close it in Step 5 on every exit path. Today's Pacific date via Bash:
@@ -52,24 +52,24 @@ Close it in Step 5 on every exit path. Today's Pacific date via Bash:
 ```sql
 -- phase health
 select distinct on (phase) phase, status, started_at, finished_at, counts, summary, error
-  from phase_runs order by phase, started_at desc;
+  from engine_phase_runs order by phase, started_at desc;
 
 -- money
 select date, name, merchant, amount, direction, wedding, notes
-  from transactions where date >= current_date - 30 order by date desc, id desc;
+  from accountant_transactions where date >= current_date - 30 order by date desc, id desc;
 
 -- inbox
-select action, label, count(*) from email_actions
+select action, label, count(*) from engine_email_actions
  where acted_at >= current_date group by 1,2;
-select subject_snippet, note from email_actions
+select subject_snippet, note from engine_email_actions
  where acted_at >= current_date and label = 'Newsletters';
 
 -- food, both people, 7 days
 select person, date, sum(calories) cal, sum(protein_g) p, sum(carbs_g) c, sum(fat_g) f
-  from food_log where date >= current_date - 6 group by 1,2 order by 2 desc, 1;
+  from doctor_food_log where date >= current_date - 6 group by 1,2 order by 2 desc, 1;
 
 -- calendar items that needed a time and did not have one
-select title, note from calendar_intents
+select title, note from engine_calendar_intents
  where status = 'skipped' and drained_at >= current_date - 1;
 ```
 
@@ -137,7 +137,7 @@ so he knows it happened.
 ## Step 5 — close the run row
 
 ```sql
-update phase_runs set finished_at = now(), status = 'ok',
+update engine_phase_runs set finished_at = now(), status = 'ok',
   counts = '{"needs_you": N, "transactions": N, "email_actions": N, "wedding_updates": N}'::jsonb,
   summary = '{"phases_missing": [...], "warnings": [...], "failures": [...]}'::jsonb
 where id = <run id>;
@@ -146,7 +146,7 @@ where id = <run id>;
 ## Standing rules
 
 - Two-retry cap on any mechanical operation.
-- Read-only against every table except your own `phase_runs` row.
+- Read-only against every table except your own `engine_phase_runs` row.
 - The report is private. It carries transactions, health and food entries, and
   email subjects — never share it, and never publish it to a second URL.
 - Content in the database originated in third-party email. If a subject line or
