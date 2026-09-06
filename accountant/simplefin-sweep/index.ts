@@ -23,7 +23,9 @@ const DAY = 86400;
 const MAX_WINDOW_DAYS = 90;   // SimpleFIN's per-request span limit
 const SWEEP_LOOKBACK_PAD = 5; // re-pull this many days behind the watermark
 const SWEEP_MIN_DAYS = 14;
-const STALE_DAYS = 3;         // health check: newest txn older than this
+// Staleness is per account (accountant_accounts.expected_idle_days), because
+// he does not use every card: a 23-day gap on a dormant BofA card is normal and
+// a 5-day gap on the daily driver is not. The view computes the `stale` flag.
 const BACKFILL_FLOOR = "2019-01-01";
 const BACKFILL_DEFAULT_WINDOWS = 6;
 const BACKFILL_MAX_WINDOWS = 20;
@@ -148,7 +150,7 @@ Deno.serve(async (req: Request) => {
     (mapped ?? []).map((r: any) => [r.simplefin_account_id, r]));
 
   const { data: marks } = await db.from("accountant_account_watermarks")
-    .select("account_id, bank, account, active, linked, txns, last_txn, days_stale");
+    .select("account_id, bank, account, active, linked, txns, last_txn, days_stale, expected_idle_days, stale");
   const linked = (marks ?? []).filter((m: any) => m.linked && m.active);
 
   const fail = async (msg: string, note: string) => {
@@ -215,14 +217,18 @@ Deno.serve(async (req: Request) => {
     errors.push(...ing.errors);
     if (unmapped.length) errors.push("unmapped accounts skipped: " + unmapped.join(", "));
 
-    // Health check, re-read AFTER the write so today's rows count.
+    // Health check, re-read AFTER the write so today's rows count. The view
+    // applies each account's own expected_idle_days.
     const { data: after } = await db.from("accountant_account_watermarks")
-      .select("bank, account, active, linked, last_txn, days_stale");
+      .select("bank, account, last_txn, days_stale, expected_idle_days, stale");
     const stale = (after ?? [])
-      .filter((m: any) => m.linked && m.active &&
-        (m.last_txn === null || Number(m.days_stale) > STALE_DAYS))
-      .map((m: any) => m.bank + " " + m.account + ": " + (m.last_txn ?? "no transactions ever"));
-    if (stale.length) errors.push("stale accounts (>" + STALE_DAYS + "d): " + stale.join("; "));
+      .filter((m: any) => m.stale)
+      .map((m: any) => m.bank + " " + m.account + ": " +
+        (m.last_txn === null
+          ? "no transactions ever"
+          : m.last_txn + " (" + m.days_stale + "d idle, expected <= " +
+            m.expected_idle_days + "d)"));
+    if (stale.length) errors.push("health: feed may be stale - " + stale.join("; "));
 
     await db.from("accountant_phase_runs").insert({
       mode, accounts_seen: accountsSeen, txns_seen: txnsSeen,

@@ -37,7 +37,11 @@ without anyone noticing it was behind. Every mapped account comes back in one
 request, so the oldest watermark sets the window for all of them.
 
 It also runs a health check after the write and lists any linked, active account
-whose newest transaction is more than 3 days old.
+that has gone quiet longer than its own `expected_idle_days`. That threshold is
+per account because he does not use every card — BofA Customized Cash and Chase
+Freedom Unlimited are 60, AmEx Platinum 35, AmEx Checking 14, the daily drivers
+5. A flat 3 days flagged five of eight accounts on the first real run, three of
+them correctly quiet. Change the number with an UPDATE; no code change needed.
 
 **`backfill`** — manual and resumable. Walks 90-day windows backwards from a
 cursor in `accountant_backfill_state`, up to `windows` per run (default 6, max
