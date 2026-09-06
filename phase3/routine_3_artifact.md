@@ -1,7 +1,10 @@
 # Phase 3 — build the morning report
 
 The prompt for the 8:00am PT daily cloud routine. Source of truth: edit here,
-commit, then paste into the routine.
+commit, then PUSH. The routine fetches this file from raw.githubusercontent.com
+at run time, so the push is the deployment and there is nothing to paste. Never
+copy a prompt body into the scheduler — that makes a second copy which drifts
+silently.
 
 Cron is fixed UTC — `0 15 * * *` is 8:00am PDT and needs a one-hour bump in
 November. Adrien wakes around 8:30, so this has thirty minutes of slack.

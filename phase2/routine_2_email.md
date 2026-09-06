@@ -1,7 +1,10 @@
 # Phase 2 — email sweep
 
 The prompt for the 7:15am PT daily cloud routine. Source of truth: edit here,
-commit, then paste into the routine.
+commit, then PUSH. The routine fetches this file from raw.githubusercontent.com
+at run time, so the push is the deployment and there is nothing to paste. Never
+copy a prompt body into the scheduler — that makes a second copy which drifts
+silently.
 
 Cron is fixed UTC — `15 14 * * *` is 7:15am PDT and needs a one-hour bump in
 November.

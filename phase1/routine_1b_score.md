@@ -8,7 +8,10 @@
 > hunt resumes. See `phase1/README.md`.
 
 The prompt for the 6:30am PT daily cloud routine. Source of truth: edit here,
-commit, then paste into the routine.
+commit, then PUSH. The routine fetches this file from raw.githubusercontent.com
+at run time, so the push is the deployment and there is nothing to paste. Never
+copy a prompt body into the scheduler — that makes a second copy which drifts
+silently.
 
 Cron is fixed UTC — `30 13 * * *` is 6:30am PDT and needs a one-hour bump in
 November. Daily rather than weekdays: postings appear on weekends, and the
