@@ -54,13 +54,13 @@ Close it in Step 4 on every exit path. Today's Pacific date via Bash:
 select distinct on (phase) phase, status, started_at, finished_at, counts, summary, error
   from engine_phase_runs order by phase, started_at desc;
 
--- money, month to date, per category. The view already excludes transfers.
-select category, spent, received, net, txns from accountant_monthly
- where month = to_char(current_date, 'YYYY-MM') order by spent desc;
-
--- money, recent rows for context
-select id, date, bank, account, amount, category, description
-  from accountant_ledger where date >= current_date - 30;
+-- money: the current calendar month, every row, newest first. This one query
+-- feeds the whole Money card -- figures, tabs and table all derive from it in
+-- the page, so do not also query accountant_monthly and hand-copy totals.
+select date, description, category, amount
+  from accountant_transactions
+ where date >= date_trunc('month', current_date)::date
+ order by date desc, id desc;
 
 -- inbox
 select action, label, count(*) from engine_email_actions
@@ -92,20 +92,33 @@ were all cut deliberately, along with the phase-health dots in the masthead.
 
 1. **Money — <current month>** — put the month in the heading itself
    ("Money — September"), and recompute it every day so it always covers the
-   calendar month to date. Three figures: In, Out, Net; green, red, neutral. No
-   explanatory line under them — he cut it. Then unpaid bills from phase 2's
-   `bills_outstanding`, soonest due first, since bills no longer sit in the inbox
-   and this is the only place one surfaces.
+   calendar month to date. Then unpaid bills from phase 2's `bills_outstanding`,
+   soonest due first, since bills no longer sit in the inbox and this is the only
+   place one surfaces.
 
-   Take the figures from `accountant_monthly`, summed across its rows for the
-   current month: Out = sum of `spent`, In = sum of `received`, Net = sum of
-   `net`. **`amount` is signed** — negative is money out, positive is money in,
-   on credit and debit alike — and the view has already turned that into
-   positive `spent` / `received` columns, so do not re-derive the sign yourself.
-   Card payments and other `transfer` rows are excluded from the view by design;
-   counting them would double-count spending already counted when the individual
-   charges posted. Rows still awaiting a category are **not** excluded — they
-   carry a null category and belong in the totals.
+   **Your only job on this card is to fill in one array.** Replace the contents
+   of `<script type="application/json" id="txns">` in the template with the rows
+   from the month query, newest first, as
+   `{"date":"YYYY-MM-DD","desc":"…","cat":"grocery"|null,"amt":-12.34}`.
+   `amt` is the signed `amount` straight from the table — negative out, positive
+   in, on credit and debit alike. **Do not re-derive the sign, do not take the
+   absolute value, and do not pre-compute any total.**
+
+   The page derives everything else from that array on its own: the category tab
+   row, the per-tab counts, the three figures, and the scrolling table. Changed
+   2026-09-06 at his request — a table listing every transaction grew unbounded
+   and pushed the rest of the report off the screen, so it now scrolls inside the
+   card, shows the current month only, and has a tab per category with the
+   figures following whichever tab is selected.
+
+   Two rules the page bakes in, so you do not have to: **All excludes
+   `transfer`** (a card payment is money already counted when the individual
+   charges posted, so counting it again doubles the month) and transfers stay
+   inspectable under their own tab. A null category becomes an "uncategorized"
+   tab; those rows **do** count in All.
+
+   If the month has no rows at all, still render the card. The page draws
+   "Nothing this month." on its own.
 2. **Nutrition** — two tables, Adrien then Ashley, last 7 days: day, calories,
    protein, carbs, fat. Blank tables with a plain "no entries yet" line are
    correct until the food tracker moves over; do not hide the card.

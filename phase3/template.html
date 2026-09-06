@@ -83,6 +83,38 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
 .fig.net .fig-val{color:var(--ink)}
 .caveat{margin:12px 0 0;color:var(--ink-3);font-size:13px}
 
+/* category tabs: one scrolling row of pills. The row scrolls rather than
+   wrapping so the card height does not jump when a category appears. */
+.tabs{display:flex;gap:6px;margin-top:14px;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:.06em;padding:6px 11px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink-2);
+  cursor:pointer;white-space:nowrap;font-weight:500}
+.tab .n{color:var(--ink-3);margin-left:5px;font-variant-numeric:tabular-nums}
+.tab[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent-soft);
+  color:var(--accent);font-weight:700}
+.tab[aria-selected="true"] .n{color:var(--accent)}
+
+/* the transactions table scrolls inside the card, so a heavy month cannot push
+   Nutrition and Requires Action off the bottom of the page */
+.txn-scroll{margin-top:12px;max-height:340px;overflow-y:auto;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;border-top:1px solid var(--line-2)}
+.txn-scroll table{width:100%}
+.txn-scroll thead th{position:sticky;top:0;background:var(--card);z-index:1;
+  padding-top:9px;box-shadow:inset 0 -1px 0 var(--line-2)}
+.txn-scroll td{white-space:normal;border-top:1px solid var(--line-2)}
+td.d{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;
+  color:var(--ink-3);white-space:nowrap;vertical-align:top;padding-top:10px}
+td.desc{width:100%;vertical-align:top;padding-top:9px;line-height:1.3}
+.cat{display:block;font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);
+  margin-top:1px}
+td.amt{white-space:nowrap;vertical-align:top;padding-top:10px}
+td.amt.neg{color:var(--out)}
+td.amt.pos{color:var(--in)}
+
 /* nutrition */
 .who{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
   text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);
@@ -123,24 +155,48 @@ ul.todo a{color:var(--accent)}
 <main>
 
   <!-- ============ MONEY ============ -->
+  <!-- Replace the array below with the CURRENT CALENDAR MONTH only, newest
+       first. `amt` is signed exactly as accountant_transactions stores it:
+       negative out, positive in. `cat` null renders as "uncategorized".
+       Everything else on this card - tabs, counts, the three figures - is
+       derived from this array, so there is nothing else to keep in sync. -->
+  <script type="application/json" id="txns">
+  [
+    {"date":"2026-09-04","desc":"Trader Joes","cat":"grocery","amt":-64.18},
+    {"date":"2026-09-04","desc":"Interest Payment","cat":"income","amt":216.00},
+    {"date":"2026-09-03","desc":"Costco Gas","cat":"gas","amt":-52.40},
+    {"date":"2026-09-02","desc":"Sq La Fiesta Taqueri Ca","cat":null,"amt":-31.75},
+    {"date":"2026-09-01","desc":"Automatic Payment - Thank","cat":"transfer","amt":156.21}
+  ]
+  </script>
   <section class="card">
     <div class="card-head">
       <h2>Money — September</h2>
+      <span class="count" id="txn-count">0</span>
     </div>
     <div class="card-body">
       <div class="money">
         <div class="fig in">
           <div class="fig-label">In</div>
-          <div class="fig-val">$0.00</div>
+          <div class="fig-val" id="fig-in">$0.00</div>
         </div>
         <div class="fig out">
           <div class="fig-label">Out</div>
-          <div class="fig-val">$1,600.11</div>
+          <div class="fig-val" id="fig-out">$0.00</div>
         </div>
         <div class="fig net">
           <div class="fig-label">Net</div>
-          <div class="fig-val">−$1,600.11</div>
+          <div class="fig-val" id="fig-net">$0.00</div>
         </div>
+      </div>
+
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <div class="txn-scroll">
+        <table>
+          <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th></tr></thead>
+          <tbody id="txn-rows"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -196,3 +252,123 @@ ul.todo a{color:var(--accent)}
 
 </main>
 </div>
+
+<script>
+/* Money card. One data source (#txns); three derived things: the tab row, the
+   three figures, and the table. All of it recomputes on a tab click.
+
+   ALL deliberately excludes `transfer`, matching accountant_monthly: a card
+   payment is money already counted when the individual charges posted, so
+   counting it again doubles the month. Transfers stay inspectable under their
+   own tab, with their own totals - which is the reason the figures are computed
+   per selection instead of being written in once. */
+(function () {
+  var CANON = ["dining","grocery","shopping","utility","gas","travel",
+               "transfer","income","fee"];
+  var raw;
+  try { raw = JSON.parse(document.getElementById("txns").textContent) || []; }
+  catch (e) { raw = []; }
+
+  var rows = raw.map(function (r) {
+    return { date: String(r.date || ""), desc: String(r.desc || ""),
+             amt: Number(r.amt) || 0, cat: r.cat || "uncategorized" };
+  });
+
+  function money(n) {
+    var s = "$" + Math.abs(n).toLocaleString("en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n < 0 ? "−" + s : s;
+  }
+
+  // Tabs: All first, then the canonical nine in his order, then uncategorized -
+  // but only the ones actually present this month, so the row stays short.
+  var present = {};
+  rows.forEach(function (r) { present[r.cat] = (present[r.cat] || 0) + 1; });
+  var order = CANON.filter(function (c) { return present[c]; });
+  if (present.uncategorized) order.push("uncategorized");
+
+  var allRows = rows.filter(function (r) { return r.cat !== "transfer"; });
+  var tabs = [{ key: "all", label: "All", n: allRows.length }].concat(
+    order.map(function (c) { return { key: c, label: c, n: present[c] }; }));
+
+  var tabBar = document.getElementById("tabs");
+  var tbody = document.getElementById("txn-rows");
+  var elIn = document.getElementById("fig-in");
+  var elOut = document.getElementById("fig-out");
+  var elNet = document.getElementById("fig-net");
+  var elCount = document.getElementById("txn-count");
+  var scroller = document.querySelector(".txn-scroll");
+
+  function select(key) {
+    var list = key === "all" ? allRows
+      : rows.filter(function (r) { return r.cat === key; });
+
+    var inSum = 0, outSum = 0;
+    list.forEach(function (r) {
+      if (r.amt > 0) inSum += r.amt; else outSum += -r.amt;
+    });
+    elIn.textContent = money(inSum);
+    elOut.textContent = money(outSum);
+    elNet.textContent = money(inSum - outSum);
+    elCount.textContent = list.length + (list.length === 1 ? " txn" : " txns");
+
+    Array.prototype.forEach.call(tabBar.children, function (b) {
+      b.setAttribute("aria-selected", String(b.getAttribute("data-key") === key));
+    });
+
+    tbody.textContent = "";
+    if (!list.length) {
+      var tr0 = document.createElement("tr");
+      var td0 = document.createElement("td");
+      td0.className = "blank"; td0.colSpan = 3;
+      td0.textContent = "Nothing this month.";
+      tr0.appendChild(td0); tbody.appendChild(tr0);
+      return;
+    }
+    list.forEach(function (r) {
+      var tr = document.createElement("tr");
+
+      var d = document.createElement("td");
+      d.className = "d";
+      d.textContent = r.date.slice(5).replace("-", "/");
+      tr.appendChild(d);
+
+      var desc = document.createElement("td");
+      desc.className = "desc";
+      desc.appendChild(document.createTextNode(r.desc));
+      if (key === "all") {
+        var c = document.createElement("span");
+        c.className = "cat";
+        c.textContent = r.cat;
+        desc.appendChild(c);
+      }
+      tr.appendChild(desc);
+
+      var a = document.createElement("td");
+      a.className = "num amt " + (r.amt < 0 ? "neg" : "pos");
+      a.textContent = money(r.amt);
+      tr.appendChild(a);
+
+      tbody.appendChild(tr);
+    });
+    if (scroller) scroller.scrollTop = 0;
+  }
+
+  tabs.forEach(function (t) {
+    var b = document.createElement("button");
+    b.className = "tab";
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.setAttribute("data-key", t.key);
+    b.appendChild(document.createTextNode(t.label));
+    var n = document.createElement("span");
+    n.className = "n";
+    n.textContent = t.n;
+    b.appendChild(n);
+    b.addEventListener("click", function () { select(t.key); });
+    tabBar.appendChild(b);
+  });
+
+  select("all");
+})();
+</script>
