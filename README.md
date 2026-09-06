@@ -124,7 +124,7 @@ takes `accountant_transactions`.
 
 **SimpleFIN, and nothing else** (changed 2026-09-05). The
 `accountant-simplefin-sweep` edge function pulls all eight active accounts
-directly from the banks on its own daily schedule and writes through the
+directly from the banks on a `pg_cron` schedule (1:37pm PT) and writes through the
 `accountant_ingest` function, which dedupes on `external_id` and applies the
 merchant maps as it goes.
 
@@ -138,7 +138,9 @@ survive as filing labels with no database write behind them.
 `accountant_uncategorized` by naming a merchant and writing the two map rows so
 every future charge from it categorizes itself — and phase 3 reads the views to
 draw the morning report. Anything older than SimpleFIN's reach comes in by CSV
-through `accountant_ingest`.
+through `accountant_ingest` — and that reach was **measured at about six months**
+on 2026-09-06, so 2025-03-13 → 2026-03-18 stays empty until bank CSVs are loaded.
+See `accountant/README.md`.
 
 ## Design decisions worth defending
 
@@ -190,7 +192,7 @@ The three live phases have been running unattended since 2026-09-01.
 |---|---|---|
 | Database schema and retention | Live | — |
 | 2 — email sweep | Live | 11 scanned, 6 labeled |
-| SimpleFIN sweep | Live | 8 accounts, 34 txns seen in a 7-day dry run |
+| SimpleFIN sweep | Live | 8 accounts, 449 rows loaded 2026-09-06, daily `pg_cron` at 1:37pm PT |
 | 2b — calendar drain | Live | no pending intents |
 | 3 — morning report | Live | report published, 2 items needing a human |
 | 1a — ingest, 7 sources | **Detached** 2026-09-04 | 52 tests still green |
