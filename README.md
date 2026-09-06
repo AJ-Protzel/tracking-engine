@@ -38,8 +38,8 @@ being reported is a thread lost.
 ## Architecture
 
 Three phases. Each is a separate scheduled job with its own failure domain.
-(There were two more that ingested and scored job postings; they are detached —
-see below.)
+(There were two more that ingested and scored job postings. They were detached on
+2026-09-04 and removed on 2026-09-06 — see below.)
 
 ```
   7:15am  ┌────────────────────────────┐
@@ -192,27 +192,22 @@ The three live phases have been running unattended since 2026-09-01.
 |---|---|---|
 | Database schema and retention | Live | — |
 | 2 — email sweep | Live | 11 scanned, 6 labeled |
-| SimpleFIN sweep | Live | 8 accounts, 449 rows loaded 2026-09-06, daily `pg_cron` at 1:37pm PT |
+| SimpleFIN sweep | Live | 8 accounts, 449 rows loaded 2026-09-06, daily `pg_cron` at 7:30am PT |
 | 2b — calendar drain | Live | no pending intents |
 | 3 — morning report | Live | report published, 2 items needing a human |
-| 1a — ingest, 7 sources | **Detached** 2026-09-04 | 52 tests still green |
-| 1b — score and prepare | **Detached** 2026-09-04 | routine disabled |
+| 1a — ingest, 7 sources | **Removed** 2026-09-06 | detached 2026-09-04 |
+| 1b — score and prepare | **Removed** 2026-09-06 | routine still disabled |
 
 ---
 
 ## Running it
 
-The three live phases are prompts on a scheduler — there is nothing to install
-and nothing to start. The only runnable code is detached phase 1:
+Every phase is a prompt on a scheduler — there is nothing to install and nothing
+to start. The one piece of deployed code is the SimpleFIN edge function, which
+Supabase runs; see `accountant/README.md`.
 
-```bash
-pip install -e ".[dev]"
-pytest -q && ruff check .
-```
-
-Those 52 tests are pure functions over fixture data and still pass. Everything
-past them needs tables that no longer exist, and the ingest job in CI is gated
-`if: false` so nothing can run it by accident.
+There is no Python left in this repo. The ingest package, its tests, the CI
+workflow and `pyproject.toml` went with phase 1 on 2026-09-06.
 
 ## Layout
 
@@ -221,10 +216,9 @@ reading the others. Each has a README explaining what it does and what must not
 be undone.
 
 ```
-phase1/   extract  — DETACHED. Job ingest (Python) + the scoring prompt
 phase2/   email    — inbox sweep + calendar drain
 phase3/   present  — the morning report
-config/   shared   — filters and thresholds for detached phase 1
+accountant/        — the SimpleFIN edge function
 sql/      shared   — schema, history, job removal, and the naming convention
 skills/   shared   — conversational skills over the non-pipeline tables
 ```
@@ -265,12 +259,13 @@ It is switched off. The seven tables — `jobs`, `job_filters`, `job_scores`,
 three views were exported to CSV and dropped (`sql/004_drop_job_tracking.sql`).
 The database went 61 MB → 11 MB.
 
-**The code is still here, detached.** `phase1/` keeps the ingest package, its
-seven source adapters, the filter rules, and the scoring prompt — running on no
-schedule, wired to nothing, reading tables that do not exist. Deleting it would
-have cost the most substantial engineering in the repo to save nothing; a banner
-at the top of `phase1/README.md` says plainly that it is inert and what to
-restore to revive it. The `Jobs` email label survives as an ordinary label.
+**The code was kept detached for two days, then removed** on 2026-09-06 when
+Adrien confirmed he was scrapping the job search rather than pausing it. `phase1/`,
+`config/`, the CI workflow and `pyproject.toml` are gone from the working tree;
+`git show 85f2d5a:phase1/` still has all of it, and the dropped tables were
+exported to CSV first. Reviving it means restoring those paths, re-adding the
+`schedule:` trigger, and re-creating seven tables. The `Jobs` email label
+survives as an ordinary label.
 
 What is worth keeping from it is the storage lesson, which took two rounds to
 learn.

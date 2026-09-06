@@ -188,8 +188,8 @@ one. They are different things and this step does not touch the ledger.
 
 Job tracking was switched off on 2026-09-04: there is no `jobs`, `applications`,
 or `email_events` table any more, nothing scores postings or writes cover
-letters, and the report has no pipeline card. The phase 1 code still sits in the
-repo but runs on no schedule and writes to nothing.
+letters, and the report has no pipeline card. The phase 1 code was removed from
+the repo on 2026-09-06 when the job search was scrapped outright.
 
 Job mail still arrives, so the **Jobs label and its legitimacy check stay**. That
 is the whole of it: label the thread, remove it from the inbox, write the
@@ -295,7 +295,7 @@ full-file rewrite would flatten to static numbers.
 
 ## Step 8 — retention
 
-Phase 1a used to call this at the end of every ingest, and phase 1a is detached
+Phase 1a used to call this at the end of every ingest, and phase 1a is gone
 now, so the sweep owns it. One call, no arguments, ignore the return value beyond
 putting it in the summary:
 
