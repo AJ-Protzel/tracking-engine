@@ -14,12 +14,25 @@ the primary, promotions, social, and updates categories, plus one light pass
 over spam to rescue obvious false positives. Drafts replies to personal mail
 that wants one.
 
-Two things it does that the old sweeper did not:
+One thing it does that the old sweeper did not: **threads with a real date and
+time become `engine_calendar_intents` rows** for 2b.
 
-- **Money In / Money Out threads become `accountant_transactions` rows.** An interim feed
-  until real account access exists. It only catches what emails a receipt, and
-  the report says so rather than implying the picture is complete.
-- **Threads with a real date and time become `engine_calendar_intents` rows** for 2b.
+### It does no accountant work
+
+Until 2026-09-05 a Money In / Money Out thread became an
+`accountant_transactions` row. **SimpleFIN replaced that feed entirely**, pulling
+all eight active accounts from the banks on its own schedule. Two feeds for one
+charge produce duplicates that nothing reconciles, so the email side was removed
+rather than deduped against — and `source = 'email'` is no longer a legal value.
+
+The two labels stay. Filing a receipt out of the inbox is still worth doing and
+the thread is still the paper trail; there is simply no database write behind it.
+
+A merchant-categorization step lived here for one day (2026-09-05 to
+2026-09-06) and was removed too. **No `accountant_` table is written by this
+routine.** The edge function loads transactions, the `accountant` skill curates
+them on demand, and phase 3 reads the views to draw the report. One owner per
+table.
 
 Writes an `engine_email_actions` row per thread, which is what makes the sweep
 auditable after the fact, and one `engine_phase_runs` row. Sends no email — the report

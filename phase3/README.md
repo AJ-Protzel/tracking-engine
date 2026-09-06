@@ -16,7 +16,7 @@ Cards:
 
 | Card | Source |
 |---|---|
-| Finances | `accountant_transactions`. Renders empty and says so until data exists |
+| Finances | `accountant_monthly` and `accountant_ledger`. Renders empty and says so until data exists |
 | Email | `engine_email_actions` from today's sweep |
 | Food | `doctor_food_log`, both people, last 7 days |
 | Phase health | Newest `engine_phase_runs` row per phase |
@@ -38,7 +38,9 @@ morning report.
 
 Same rule for the data itself: an empty `accountant_transactions` table draws an empty
 graph that says it is waiting for data. It does not draw nothing, and it does
-not throw.
+not throw. Read money through the views rather than the base table, so a schema
+change costs an afternoon rather than a broken morning — which is exactly what
+the 2026-09-05 rebuild would have cost otherwise.
 
 ## Expect to edit this one
 

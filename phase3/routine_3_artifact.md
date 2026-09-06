@@ -44,7 +44,7 @@ waiting for data. It does not draw nothing and it does not throw.
 insert into engine_phase_runs (phase) values ('3') returning id;
 ```
 
-Close it in Step 5 on every exit path. Today's Pacific date via Bash:
+Close it in Step 4 on every exit path. Today's Pacific date via Bash:
 `TZ='America/Los_Angeles' date +%F`.
 
 ## Step 2 — read everything
@@ -54,9 +54,13 @@ Close it in Step 5 on every exit path. Today's Pacific date via Bash:
 select distinct on (phase) phase, status, started_at, finished_at, counts, summary, error
   from engine_phase_runs order by phase, started_at desc;
 
--- money
-select date, name, merchant, amount, direction, wedding, notes
-  from accountant_transactions where date >= current_date - 30 order by date desc, id desc;
+-- money, month to date, per category. The view already excludes transfers.
+select category, spent, received, net, txns from accountant_monthly
+ where month = to_char(current_date, 'YYYY-MM') order by spent desc;
+
+-- money, recent rows for context
+select id, date, bank, account, amount, category, description
+  from accountant_ledger where date >= current_date - 30;
 
 -- inbox
 select action, label, count(*) from engine_email_actions
@@ -92,6 +96,16 @@ were all cut deliberately, along with the phase-health dots in the masthead.
    explanatory line under them — he cut it. Then unpaid bills from phase 2's
    `bills_outstanding`, soonest due first, since bills no longer sit in the inbox
    and this is the only place one surfaces.
+
+   Take the figures from `accountant_monthly`, summed across its rows for the
+   current month: Out = sum of `spent`, In = sum of `received`, Net = sum of
+   `net`. **`amount` is signed** — negative is money out, positive is money in,
+   on credit and debit alike — and the view has already turned that into
+   positive `spent` / `received` columns, so do not re-derive the sign yourself.
+   Card payments and other `transfer` rows are excluded from the view by design;
+   counting them would double-count spending already counted when the individual
+   charges posted. Rows still awaiting a category are **not** excluded — they
+   carry a null category and belong in the totals.
 2. **Nutrition** — two tables, Adrien then Ashley, last 7 days: day, calories,
    protein, carbs, fat. Blank tables with a plain "no entries yet" line are
    correct until the food tracker moves over; do not hide the card.
@@ -125,20 +139,22 @@ updates in place. **Never publish without that URL** — publishing without it
 creates a second artifact and his home-screen icon silently stops updating.
 Favicon stays 🌅 and the title stays "Tracking Engine Brief".
 
-## Step 4 — wedding payments
+## There is no wedding step
 
-Do **not** update Road to Loloma from here (changed 2026-09-02). A wedding
-payment shows up in the report as a notification only; the receipt arrives by
-email and phase 2 updates the artifact on its next sweep. One writer, one place.
+Removed 2026-09-05, along with the data behind it. `accountant_wedding_vendors`
+was dropped and `accountant_ledger` no longer has a `wedding` column, so nothing
+here can distinguish a wedding charge from any other one — and **no routine
+updates Road to Loloma** (phase 2 owned that briefly, from 2026-09-02).
 
-Just list any `wedding = true` transaction from the last day in Requires Action
-so he knows it happened.
+Adrien records wedding spending himself, by naming or linking the transaction
+from his wedding project. Do not add a wedding line to Requires Action, do not
+guess at wedding-ness from a merchant name, and do not re-add the card.
 
-## Step 5 — close the run row
+## Step 4 — close the run row
 
 ```sql
 update engine_phase_runs set finished_at = now(), status = 'ok',
-  counts = '{"needs_you": N, "transactions": N, "email_actions": N, "wedding_updates": N}'::jsonb,
+  counts = '{"needs_you": N, "transactions": N, "email_actions": N}'::jsonb,
   summary = '{"phases_missing": [...], "warnings": [...], "failures": [...]}'::jsonb
 where id = <run id>;
 ```

@@ -83,9 +83,9 @@ enumerated list in a skill description is the thing that goes stale.
 | `engine_` | no skill — the pipeline | phases 2, 2b and 3 read and write these; a skill should leave them alone |
 
 Ownership means *whose data this is*, not who writes it.
-`accountant_transactions` is written by phase 2's email sweep and only read by
-the accountant. `doctor_food_log` is written by the doctor skill and read by
-phase 3 to draw the nutrition card.
+`accountant_transactions` is written by the SimpleFIN sweep and read by the
+accountant and by phase 3. `doctor_food_log` is written by the doctor skill and
+read by phase 3 to draw the nutrition card.
 
 Underscores rather than spaces or hyphens, because `"doctor - food_log"` is not
 a valid bare identifier and would need double quotes in every statement forever.
@@ -99,9 +99,10 @@ Mail, money, and the heartbeat:
 | `engine_email_actions` | What the sweep did, per thread — the sweep is auditable |
 | `engine_blocklist` | Repeat junk senders, and the dates that earned them the label |
 | `engine_calendar_intents` | Events phase 2 wants; phase 2b creates them |
-| `accountant_transactions` | Names, dates, amounts, accounts. Never a card number |
-| `accountant_accounts` | Account names only, for `accountant_transactions` to reference |
-| `accountant_wedding_vendors` | Vendor names behind the wedding-tagged transactions |
+| `accountant_transactions` | Dates, signed amounts, merchants, accounts. Never a card number |
+| `accountant_accounts` | Bank, account name, type, last4. No full numbers |
+| `accountant_merchant_aliases` | Raw bank descriptor fragment to a clean merchant name |
+| `accountant_merchant_categories` | Clean merchant name to one of nine categories |
 | `engine_phase_runs` | The heartbeat every phase writes and phase 3 reads |
 
 Read and written by skills rather than by a phase:
@@ -119,21 +120,45 @@ Food-Tracker project was folded into this one; the doctor skill takes ownership
 of all three, replacing the earlier food-tracker skill, and an accountant skill
 takes `accountant_transactions`.
 
+## Where transactions come from
+
+**SimpleFIN, and nothing else** (changed 2026-09-05). The
+`accountant-simplefin-sweep` edge function pulls all eight active accounts
+directly from the banks on its own daily schedule and writes through the
+`accountant_ingest` function, which dedupes on `external_id` and applies the
+merchant maps as it goes.
+
+Phase 2 used to write a row per Money In / Money Out email. That feed is gone:
+two feeds for one charge produce duplicates that nothing reconciles, and
+`source = 'email'` is no longer a legal value. The Money In and Money Out labels
+survive as filing labels with no database write behind them.
+
+**No routine touches the accountant tables.** The edge function loads them, the
+`accountant` skill curates them when Adrien asks — including draining
+`accountant_uncategorized` by naming a merchant and writing the two map rows so
+every future charge from it categorizes itself — and phase 3 reads the views to
+draw the morning report. Anything older than SimpleFIN's reach comes in by CSV
+through `accountant_ingest`.
+
 ## Design decisions worth defending
 
 **Nothing labeled gets auto-deleted.** An earlier version trashed flagged
 threads after a week. Deleting a person's unanswered mail on a timer is the kind
 of automation that is only correct until the one time it isn't.
 
-**One writer per destination.** The wedding artifact is updated by phase 2 only,
-because that is where the receipt lands first. Phase 3 mentions the payment and
-writes nothing. Two writers on one page is how a page ends up with a number
-neither of them meant.
+**One writer per destination.** No routine writes the wedding artifact at all
+any more (2026-09-05) — Adrien records wedding spending himself from his wedding
+project. Phase 3 mentions that a wedding charge landed and writes nothing. Two
+writers on one page is how a page ends up with a number neither of them meant.
 
-**Personal data never enters this repo.** It is public. The wedding vendor list
-lives in a database table rather than a config file, because a vendor list is a
-map of a private life. Gmail label IDs and calendar IDs are here; addresses,
-phone numbers, and vendor names are not. `config/identity.yaml` — a real address
+**One feed per fact.** The same rule pointed at data: a charge is recorded once,
+by whichever source sees it most reliably. That is the bank, not a receipt
+email.
+
+**Personal data never enters this repo.** It is public. Anything that maps a
+private life — merchant names, vendors, amounts — lives in the database rather
+than a config file. Gmail label IDs and calendar IDs are here; addresses, phone
+numbers, and merchant names are not. `config/identity.yaml` — a real address
 and phone number, used by detached phase 1 — is gitignored, with an example file
 committed in its place.
 
@@ -164,7 +189,8 @@ The three live phases have been running unattended since 2026-09-01.
 | Phase | State | Last verified run |
 |---|---|---|
 | Database schema and retention | Live | — |
-| 2 — email sweep | Live | 11 scanned, 6 labeled, 1 transaction |
+| 2 — email sweep | Live | 11 scanned, 6 labeled |
+| SimpleFIN sweep | Live | 8 accounts, 34 txns seen in a 7-day dry run |
 | 2b — calendar drain | Live | no pending intents |
 | 3 — morning report | Live | report published, 2 items needing a human |
 | 1a — ingest, 7 sources | **Detached** 2026-09-04 | 52 tests still green |
