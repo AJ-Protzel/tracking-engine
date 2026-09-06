@@ -62,6 +62,9 @@ select date, description, category, amount
  where date >= date_trunc('month', current_date)::date
  order by date desc, id desc;
 
+-- when the bank feed last loaded; this is the `synced` line, not your run time
+select max(ran_at) from accountant_phase_runs where mode = 'sweep';
+
 -- inbox
 select action, label, count(*) from engine_email_actions
  where acted_at >= current_date group by 1,2;
@@ -82,43 +85,55 @@ Database size comes from the `retention` block in phase 2's `summary`. Above
 
 ## Step 3 — render
 
-Adrien rewrote this layout by hand on 2026-09-02, and cut the job card from it
-on 2026-09-04. **Three cards**, in this order. Money and Nutrition come first
+Adrien rewrote this layout by hand on 2026-09-02, cut the job card on
+2026-09-04, and on 2026-09-06 collapsed the ledger, dropped transfers, added the
+spend bar graph and the Card Credits card. **Three cards**, in this order. Money and Nutrition come first
 because they are glanceable; the one that needs him comes last. **Do not add
 cards back that he removed** — Inbox, Pipeline, System, and Today's Applications
 were all cut deliberately, along with the phase-health dots in the masthead.
 
 **Masthead** — "Morning Brief" and the date. No time, no status dots.
 
-1. **Money — <current month>** — put the month in the heading itself
-   ("Money — September"), and recompute it every day so it always covers the
-   calendar month to date. Then unpaid bills from phase 2's `bills_outstanding`,
-   soonest due first, since bills no longer sit in the inbox and this is the only
-   place one surfaces.
+1. **Money** — the heading writes itself. Fill in **two script blocks and
+   nothing else** on this card.
 
-   **Your only job on this card is to fill in one array.** Replace the contents
-   of `<script type="application/json" id="txns">` in the template with the rows
-   from the month query, newest first, as
+   **`<script type="application/json" id="meta">`** — one object:
+   `{"date":"Sunday, September 6 2026","synced":"Synced Sep 6 at 7:30 AM"}`.
+   `date` is the masthead date. `synced` is the ONE line at the bottom of the
+   money card and it must name the real last SimpleFIN load, not your own run
+   time — read `max(ran_at)` from `accountant_phase_runs` where `mode = 'sweep'`
+   and render it in PT as `Synced Mon D at H:MM AM`. If there is no sweep row at
+   all, write `Never synced`.
+
+   **`<script type="application/json" id="txns">`** — the rows from the month
+   query, newest first, as
    `{"date":"YYYY-MM-DD","desc":"…","cat":"grocery"|null,"amt":-12.34}`.
    `amt` is the signed `amount` straight from the table — negative out, positive
    in, on credit and debit alike. **Do not re-derive the sign, do not take the
    absolute value, and do not pre-compute any total.**
 
-   The page derives everything else from that array on its own: the category tab
-   row, the per-tab counts, the three figures, and the scrolling table. Changed
-   2026-09-06 at his request — a table listing every transaction grew unbounded
-   and pushed the rest of the report off the screen, so it now scrolls inside the
-   card, shows the current month only, and has a tab per category with the
-   figures following whichever tab is selected.
+   The page derives everything else from that array on its own: the month name in
+   the heading, the category tab row, the per-tab counts, the three figures, the
+   spend-by-category bar graph, and the day-grouped ledger. There is nothing else
+   on this card for you to keep in sync, and hand-writing any of it is a bug.
 
-   Two rules the page bakes in, so you do not have to: **All excludes
-   `transfer`** (a card payment is money already counted when the individual
-   charges posted, so counting it again doubles the month) and transfers stay
-   inspectable under their own tab. A null category becomes an "uncategorized"
-   tab; those rows **do** count in All.
+   Two rules the page bakes in, so you do not have to: **transfer rows are
+   dropped entirely** — he does not want them on the page, and a card payment is
+   money already counted when the charges it settles posted — and a null category
+   becomes an "uncategorized" tab whose rows still count in All. You may send
+   transfer rows or filter them out; the rendered result is identical.
 
-   If the month has no rows at all, still render the card. The page draws
-   "Nothing this month." on its own.
+   The ledger is **collapsed by default** behind a "Show N transactions" button.
+   That is deliberate: the figures and the bars are the daily read, the rows are
+   the follow-up. Do not open it, and do not go back to a table.
+
+   If the month has no rows at all, still render the card. The page draws its
+   own empty state.
+
+   **Do not touch the Card Credits card.** It sits between Money and Nutrition,
+   it is static markup, and it is not daily data. Its tick state lives in the
+   artifact's own db store, which survives your republish. Leaving it alone is
+   the whole job.
 2. **Nutrition** — two tables, Adrien then Ashley, last 7 days: day, calories,
    protein, carbs, fat. Blank tables with a plain "no entries yet" line are
    correct until the food tracker moves over; do not hide the card.
@@ -132,6 +147,12 @@ were all cut deliberately, along with the phase-health dots in the masthead.
      broken phase has nowhere else to appear. This is the safety net for that.
    Omit the card entirely when there is genuinely nothing. Never render it empty
    because phase 2 failed — say the sweep failed instead.
+
+   **Every `<li>` needs `data-id="slug-YYYY-MM-DD"`** ending in today's date —
+   `data-id="stale-cards-2026-09-06"`. He can dismiss items with an × and the
+   dismissal is stored against that id, so a dated id means dismissing something
+   today does not bury the same problem when it is still true tomorrow. Do not
+   write the × button yourself; the page adds it.
 
 ### There is no jobs card
 

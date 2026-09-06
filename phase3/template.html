@@ -14,7 +14,9 @@
   --in:#2f6b4a; --in-soft:#dcece3;
   --out:#a03a2c; --out-soft:#f7e3df;
   --warn:#8f6410; --warn-soft:#f7edd6;
+  --on-ink:#ffffff; --card-fade:rgba(255,255,255,0);
   --shadow:0 1px 2px rgba(17,25,36,.05),0 10px 28px -20px rgba(17,25,36,.4);
+  --sticky-shadow:0 6px 16px -12px rgba(17,25,36,.5);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -25,7 +27,9 @@
     --in:#6fbf90; --in-soft:#17281f;
     --out:#e08573; --out-soft:#2c1c19;
     --warn:#dcac4d; --warn-soft:#2a2315;
+    --on-ink:#0c1218; --card-fade:rgba(20,28,37,0);
     --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -20px rgba(0,0,0,.9);
+    --sticky-shadow:0 6px 16px -12px rgba(0,0,0,.9);
   }
 }
 :root[data-theme="dark"]{
@@ -36,7 +40,9 @@
   --in:#6fbf90; --in-soft:#17281f;
   --out:#e08573; --out-soft:#2c1c19;
   --warn:#dcac4d; --warn-soft:#2a2315;
+  --on-ink:#0c1218; --card-fade:rgba(20,28,37,0);
   --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px -20px rgba(0,0,0,.9);
+  --sticky-shadow:0 6px 16px -12px rgba(0,0,0,.9);
 }
 
 *{box-sizing:border-box}
@@ -44,6 +50,7 @@ body{margin:0;background:var(--paper);color:var(--ink);
   font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:680px;margin:0 auto;padding:0 16px 64px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
 header.top{padding:28px 0 18px}
 h1{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-weight:800;
@@ -55,19 +62,26 @@ h1{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-weight:800;
 main{display:flex;flex-direction:column;gap:14px}
 section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
   box-shadow:var(--shadow);overflow:hidden}
-.card-head{display:flex;align-items:center;gap:10px;padding:15px 18px;
-  border-bottom:1px solid var(--line-2)}
+.card-head{display:flex;align-items:center;gap:10px;padding:15px 18px 13px}
 h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
   font-weight:700;letter-spacing:-.01em;margin:0;flex:1}
 .count{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;
   font-weight:500;padding:3px 9px;border-radius:999px;background:var(--sunk);
-  color:var(--ink-2);font-variant-numeric:tabular-nums}
+  color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .count.act{background:var(--accent-soft);color:var(--accent)}
 .card-body{padding:16px 18px}
+.card.plain .card-head{border-bottom:1px solid var(--line-2);padding-bottom:15px}
 
-/* money: three figures, colored by direction */
-.money{display:flex;gap:10px}
-.fig{flex:1;min-width:0;border-radius:10px;padding:11px 10px;background:var(--sunk)}
+/* ===== money: the sticky control block ===== */
+/* position:sticky dies inside an overflow:hidden ancestor, so this one card
+   opts out of the shared clip. */
+.money-card{overflow:visible}
+.stick{position:sticky;top:0;z-index:5;background:var(--card);
+  border-radius:13px 13px 0 0;border-bottom:1px solid var(--line-2);
+  box-shadow:var(--sticky-shadow)}
+
+.figs{display:flex;gap:10px;padding:0 18px}
+.fig{flex:1;min-width:0;border-radius:10px;padding:10px;background:var(--sunk)}
 .fig.in{background:var(--in-soft)}
 .fig.out{background:var(--out-soft)}
 .fig-label{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;
@@ -75,47 +89,124 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
 /* Sized to fit three figures across a phone without wrapping. A wrapped
    currency value reads as two numbers, which is worse than a small one. */
 .fig-val{font-family:"JetBrains Mono",ui-monospace,monospace;
-  font-size:clamp(13px,4.1vw,19px);
-  font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;
+  font-size:clamp(12px,3.9vw,19px);
+  font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;
   letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fig.in .fig-val{color:var(--in)}
 .fig.out .fig-val{color:var(--out)}
 .fig.net .fig-val{color:var(--ink)}
-.caveat{margin:12px 0 0;color:var(--ink-3);font-size:13px}
 
-/* category tabs: one scrolling row of pills. The row scrolls rather than
-   wrapping so the card height does not jump when a category appears. */
-.tabs{display:flex;gap:6px;margin-top:14px;overflow-x:auto;
-  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+/* tab strip: scrolls sideways on a phone rather than wrapping to two rows */
+.tabs{display:flex;gap:7px;overflow-x:auto;padding:12px 18px 13px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{display:none}
-.tab{flex:none;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
-  text-transform:uppercase;letter-spacing:.06em;padding:6px 11px;border-radius:999px;
-  border:1px solid var(--line);background:var(--card);color:var(--ink-2);
-  cursor:pointer;white-space:nowrap;font-weight:500}
-.tab .n{color:var(--ink-3);margin-left:5px;font-variant-numeric:tabular-nums}
-.tab[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent-soft);
-  color:var(--accent);font-weight:700}
-.tab[aria-selected="true"] .n{color:var(--accent)}
+.tab{flex:none;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  padding:5px 12px;border-radius:999px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink-2);white-space:nowrap}
+.tab:hover{border-color:var(--ink-3)}
+.tab[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);
+  color:var(--on-ink)}
 
-/* the transactions table scrolls inside the card, so a heavy month cannot push
-   Nutrition and Requires Action off the bottom of the page */
-.txn-scroll{margin-top:12px;max-height:340px;overflow-y:auto;overflow-x:auto;
-  -webkit-overflow-scrolling:touch;border-top:1px solid var(--line-2)}
-.txn-scroll table{width:100%}
-.txn-scroll thead th{position:sticky;top:0;background:var(--card);z-index:1;
-  padding-top:9px;box-shadow:inset 0 -1px 0 var(--line-2)}
-.txn-scroll td{white-space:normal;border-top:1px solid var(--line-2)}
-td.d{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;
-  color:var(--ink-3);white-space:nowrap;vertical-align:top;padding-top:10px}
-td.desc{width:100%;vertical-align:top;padding-top:9px;line-height:1.3}
-.cat{display:block;font-family:"JetBrains Mono",ui-monospace,monospace;
-  font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);
-  margin-top:1px}
-td.amt{white-space:nowrap;vertical-align:top;padding-top:10px}
-td.amt.neg{color:var(--out)}
-td.amt.pos{color:var(--in)}
+/* ===== spend by category: name, proportional rule, amount ===== */
+.cats{display:flex;flex-direction:column;gap:2px;margin:0 0 4px}
+.cat{display:grid;grid-template-columns:66px 1fr auto;align-items:center;gap:10px;
+  width:100%;font:inherit;text-align:left;cursor:pointer;background:none;
+  border:none;padding:5px 0;border-radius:6px}
+.cat-name{font-size:13px;font-weight:600;color:var(--ink-2)}
+.cat-bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.cat-bar i{display:block;height:100%;background:var(--out);border-radius:3px}
+.cat-amt{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;
+  font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-2);
+  white-space:nowrap}
+.money-card.picked .cat{opacity:.4}
+.money-card.picked .cat.on{opacity:1}
+.cat.on .cat-name{color:var(--ink);font-weight:700}
+.cats-head{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:0 0 8px}
 
-/* nutrition */
+/* ===== the transactions, grouped by the day they posted ===== */
+/* Collapsed by default: the figures and the bars are the daily read, the
+   individual rows are the follow-up question. */
+.disclose{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;margin-top:16px;padding:11px 13px;border-radius:10px;
+  border:1px solid var(--line);background:var(--sunk);color:var(--ink-2);
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.disclose:hover{border-color:var(--ink-3);color:var(--ink)}
+.chev{flex:none;width:7px;height:7px;margin-top:-3px;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:rotate(45deg);transition:transform .2s ease}
+.disclose[aria-expanded="true"] .chev{transform:rotate(-135deg);margin-top:2px}
+@media (prefers-reduced-motion: reduce){.chev{transition:none}}
+.ledger{margin-top:18px;padding-top:14px;border-top:1px solid var(--line-2)}
+.day{margin-top:16px;padding-top:13px;border-top:1px solid var(--line-2)}
+/* filtering can hide the first group, so the leading rule is set in JS
+   rather than with :first-child */
+.day.lead{margin-top:0;padding-top:0;border-top:none}
+.day-label{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:0 0 9px}
+.txns{display:flex;flex-direction:column;gap:10px}
+.txn{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.txn-main{min-width:0}
+.txn-name{font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.txn-name.raw{color:var(--ink-2);font-weight:500}
+.txn-meta{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  color:var(--ink-3);margin-top:2px}
+.txn-amt{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:14px;
+  font-weight:600;color:var(--out);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.txn-amt.pos{color:var(--in)}
+.caveat{margin:16px 0 0;color:var(--ink-3);font-size:13px;line-height:1.45}
+.caveat+.caveat{margin-top:6px}
+
+/* ===== card credits ===== */
+/* Struck through rather than removed: these refresh on their own cycle,
+   so a used credit is a state, not a deletion. */
+/* A window onto the list, not the whole list: about three and a half rows,
+   so the cut row itself says there is more below. */
+.creds-wrap{position:relative}
+.creds-scroll{max-height:392px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.creds-wrap::after{content:"";position:absolute;left:0;right:0;bottom:0;
+  height:30px;pointer-events:none;transition:opacity .2s ease;
+  background:linear-gradient(to bottom,var(--card-fade),var(--card))}
+.creds-wrap.at-end::after{opacity:0}
+@media (prefers-reduced-motion: reduce){.creds-wrap::after{transition:none}}
+.cgroup+.cgroup{margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line-2)}
+.cgroup-head{display:flex;justify-content:space-between;gap:10px;
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);
+  margin:0;padding-bottom:9px;position:sticky;top:0;z-index:1;
+  background:var(--card)}
+.cgroup-head .soon{color:var(--warn);font-weight:700}
+.creds{display:flex;flex-direction:column}
+.cred{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;
+  background:none;border:none;padding:13px 0}
+.cred+.cred{border-top:1px solid var(--line-2)}
+.cred-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.cred-name{font-size:14px;font-weight:600;color:var(--ink)}
+.cred-meta{display:block;font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;color:var(--ink-3);margin-top:2px;white-space:normal}
+.cred-amt{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:14px;
+  font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+/* the bar is the state: it fills as the credit is claimed, and a full bar
+   strikes the row through. Nothing leaves the list — these come back. */
+.cred-track{display:block;height:7px;border-radius:4px;background:var(--sunk);
+  overflow:hidden;margin-top:10px}
+.cred-track i{display:block;height:100%;width:0;background:var(--in);
+  border-radius:4px;transition:width .25s ease}
+.cred-legend{display:flex;justify-content:space-between;gap:10px;margin-top:6px;
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  color:var(--ink-3);font-variant-numeric:tabular-nums}
+.cl-r.soon{color:var(--warn);font-weight:700}
+.cred[aria-pressed="true"] .cred-name,
+.cred[aria-pressed="true"] .cred-amt{text-decoration:line-through;
+  text-decoration-thickness:1.5px;color:var(--ink-3)}
+.cred[aria-pressed="true"] .cl-r{color:var(--in);font-weight:700}
+.credits-card.nosync .cred{cursor:default}
+@media (prefers-reduced-motion: reduce){.cred-track i{transition:none}}
+
+/* ===== nutrition ===== */
 .who{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
   text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);
   margin:0 0 6px}
@@ -129,80 +220,206 @@ td{padding:8px 12px 8px 0;border-top:1px solid var(--line-2);white-space:nowrap}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;
   font-family:"JetBrains Mono",ui-monospace,monospace;padding-right:0}
 th:last-child,td:last-child{padding-right:0}
-.blank{color:var(--ink-3)}
+.blank{color:var(--ink-3);white-space:normal}
 
-
-/* requires action */
+/* ===== requires action ===== */
 ul.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
   gap:14px}
 ul.todo li{display:flex;gap:10px;align-items:flex-start;font-size:15px;
   line-height:1.45}
+ul.todo li>div{flex:1;min-width:0}
+.dismiss{flex:none;width:26px;height:26px;padding:0;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink-3);
+  font:inherit;font-size:16px;line-height:1;cursor:pointer}
+.dismiss:hover{border-color:var(--out);color:var(--out)}
+.all-clear{margin:0;color:var(--ink-3);font-size:14px}
 .tag{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;
   text-transform:uppercase;letter-spacing:.07em;padding:3px 7px;border-radius:5px;
   flex:none;margin-top:3px;background:var(--warn-soft);color:var(--warn)}
-ul.todo a{color:var(--accent)}
-.empty-note{padding:0 18px 16px;color:var(--ink-3);font-size:14px}
-.card.empty .card-head{border-bottom:none}
+ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;
+  overflow-wrap:anywhere}
 </style>
+
+<!-- ==========================================================================
+     PHASE 3 FILLS EXACTLY THREE THINGS. Everything else derives from them.
+
+       1. #meta       - the header date and the sync line
+       2. #txns       - the current calendar month's transactions
+       3. ul#todoList - one <li data-id="slug-YYYY-MM-DD"> per item
+
+     Do NOT hand-write totals, tab rows, bar widths, day groups or counts.
+     They are computed from #txns at load, so they cannot drift out of sync.
+     Leave the Card Credits section alone; it is not daily data.
+     ========================================================================== -->
+
+<script type="application/json" id="meta">
+{"date":"Sunday, September 6 2026","synced":"Synced Sep 6 at 7:30 AM"}
+</script>
+
+<!-- CURRENT CALENDAR MONTH ONLY. `amt` is signed exactly as
+     accountant_transactions stores it: negative out, positive in. `cat` null
+     renders as "uncategorized". Rows with cat "transfer" are DROPPED by the
+     page - he does not want them shown, and a card payment is money already
+     counted when the charges it settles posted. Send them or don't; the
+     rendered result is identical. -->
+<script type="application/json" id="txns">
+[
+  {"date":"2026-09-04","desc":"Interest Payment","cat":"income","amt":216.00},
+  {"date":"2026-09-04","desc":"Starbucks Store Fremont Ca","cat":"dining","amt":-7.45},
+  {"date":"2026-09-03","desc":"Costco Gas","cat":"gas","amt":-40.00},
+  {"date":"2026-09-02","desc":"Costco","cat":"grocery","amt":-57.89},
+  {"date":"2026-09-01","desc":"Visible","cat":"utility","amt":-25.00}
+]
+</script>
 
 <div class="wrap">
 
 <header class="top">
   <h1>Morning Brief</h1>
-  <div class="date">Wednesday, September 2 2026</div>
+  <div class="date" id="briefDate">Sunday, September 6 2026</div>
 </header>
 
 <main>
 
-  <!-- ============ MONEY ============ -->
-  <!-- Replace the array below with the CURRENT CALENDAR MONTH only, newest
-       first. `amt` is signed exactly as accountant_transactions stores it:
-       negative out, positive in. `cat` null renders as "uncategorized".
-       Everything else on this card - tabs, counts, the three figures - is
-       derived from this array, so there is nothing else to keep in sync. -->
-  <script type="application/json" id="txns">
-  [
-    {"date":"2026-09-04","desc":"Trader Joes","cat":"grocery","amt":-64.18},
-    {"date":"2026-09-04","desc":"Interest Payment","cat":"income","amt":216.00},
-    {"date":"2026-09-03","desc":"Costco Gas","cat":"gas","amt":-52.40},
-    {"date":"2026-09-02","desc":"Sq La Fiesta Taqueri Ca","cat":null,"amt":-31.75},
-    {"date":"2026-09-01","desc":"Automatic Payment - Thank","cat":"transfer","amt":156.21}
-  ]
-  </script>
-  <section class="card">
-    <div class="card-head">
-      <h2>Money — September</h2>
-      <span class="count" id="txn-count">0</span>
-    </div>
-    <div class="card-body">
-      <div class="money">
+  <!-- ============ MONEY + TRANSACTIONS (merged) ============ -->
+  <section class="card money-card" id="moneyCard">
+
+    <div class="stick">
+      <div class="card-head">
+        <h2 id="moneyTitle">Money</h2>
+        <span class="count" id="txnCount">0 txns</span>
+      </div>
+      <div class="figs">
         <div class="fig in">
           <div class="fig-label">In</div>
-          <div class="fig-val" id="fig-in">$0.00</div>
+          <div class="fig-val" id="figIn">$0.00</div>
         </div>
         <div class="fig out">
           <div class="fig-label">Out</div>
-          <div class="fig-val" id="fig-out">$0.00</div>
+          <div class="fig-val" id="figOut">$0.00</div>
         </div>
         <div class="fig net">
           <div class="fig-label">Net</div>
-          <div class="fig-val" id="fig-net">$0.00</div>
+          <div class="fig-val" id="figNet">$0.00</div>
+        </div>
+      </div>
+      <div class="tabs" id="tabs" role="group" aria-label="Filter by category"></div>
+    </div>
+
+    <div class="card-body">
+
+      <p class="cats-head">Spend by category</p>
+      <div class="cats" id="cats"></div>
+
+      <button class="disclose" id="ledgerToggle" aria-expanded="false" aria-controls="ledger">
+        <span id="ledgerLabel">Show transactions</span>
+        <span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="ledger" id="ledger" hidden></div>
+
+      <p class="caveat" id="syncedLine">Synced</p>
+    </div>
+  </section>
+
+  <!-- ============ CARD CREDITS ============ -->
+  <section class="card plain credits-card" id="creditsCard">
+    <div class="card-head">
+      <h2>Card Credits</h2>
+      <span class="count" id="creditsOpen">$942 open</span>
+    </div>
+    <div class="card-body">
+      <div class="creds-wrap" id="credsWrap">
+      <div class="creds-scroll" id="credsScroll">
+      <div class="cgroup" data-expires="2026-09-30">
+        <p class="cgroup-head"><span>Ends Sep 30</span><span class="left"></span></p>
+        <div class="creds">
+          <button class="cred" data-id="plat-resy" data-amt="100" data-period="quarterly" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Resy</span>
+              <span class="cred-amt">$100</span>
+            </span>
+            <span class="cred-meta">Platinum · $100 quarterly · $200 of $400 claimed this year</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$100 to go</span></span>
+          </button>
+          <button class="cred" data-id="plat-lululemon" data-amt="75" data-period="quarterly" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">lululemon</span>
+              <span class="cred-amt">$75</span>
+            </span>
+            <span class="cred-meta">Platinum · $75 quarterly · $149 of $300 claimed this year</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$75 to go</span></span>
+          </button>
+          <button class="cred" data-id="gold-uber" data-amt="10" data-period="monthly" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Uber Cash</span>
+              <span class="cred-amt">$10</span>
+            </span>
+            <span class="cred-meta">Gold · $10 monthly · enrolled Sep 6, not yet showing</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$10 to go</span></span>
+          </button>
+          <button class="cred" data-id="gold-dunkin" data-amt="7" data-period="monthly" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Dunkin&rsquo;</span>
+              <span class="cred-amt">$7</span>
+            </span>
+            <span class="cred-meta">Gold · $7 monthly · enrolled Sep 6, not yet showing</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$7 to go</span></span>
+          </button>
         </div>
       </div>
 
-      <div class="tabs" id="tabs" role="tablist"></div>
-
-      <div class="txn-scroll">
-        <table>
-          <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th></tr></thead>
-          <tbody id="txn-rows"></tbody>
-        </table>
+      <div class="cgroup" data-expires="2026-12-31">
+        <p class="cgroup-head"><span>Ends Dec 31</span><span class="left"></span></p>
+        <div class="creds">
+          <button class="cred" data-id="plat-hotel" data-amt="300" data-period="semiannual" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Hotel Credit</span>
+              <span class="cred-amt">$300</span>
+            </span>
+            <span class="cred-meta">Platinum · $300 semi-annual · prepaid stays through Amex Travel · $293 of $600 claimed</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$300 to go</span></span>
+          </button>
+          <button class="cred" data-id="plat-airline" data-amt="200" data-period="annual" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Airline Fee Credit</span>
+              <span class="cred-amt">$200</span>
+            </span>
+            <span class="cred-meta">Platinum · $200 annual · your selected airline</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$200 to go</span></span>
+          </button>
+          <button class="cred" data-id="plat-uber" data-amt="200" data-period="annual" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Uber Cash</span>
+              <span class="cred-amt">$200</span>
+            </span>
+            <span class="cred-meta">Platinum · $200 annual · shown as not enrolled</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$200 to go</span></span>
+          </button>
+          <button class="cred" data-id="gold-resy" data-amt="50" data-period="semiannual" aria-pressed="false">
+            <span class="cred-top">
+              <span class="cred-name">Resy</span>
+              <span class="cred-amt">$50</span>
+            </span>
+            <span class="cred-meta">Gold · $50 semi-annual · enrolled Sep 6, not yet showing</span>
+            <span class="cred-track"><i></i></span>
+            <span class="cred-legend"><span class="cl-l">$0 claimed</span><span class="cl-r">$50 to go</span></span>
+          </button>
+        </div>
+      </div>
+      </div>
       </div>
     </div>
   </section>
 
   <!-- ============ NUTRITION ============ -->
-  <section class="card">
+  <section class="card plain">
     <div class="card-head">
       <h2>Nutrition</h2>
       <span class="count">7 days</span>
@@ -226,27 +443,24 @@ ul.todo a{color:var(--accent)}
   </section>
 
   <!-- ============ REQUIRES ACTION ============ -->
-  <section class="card">
+  <section class="card plain">
     <div class="card-head">
       <h2>Requires Action</h2>
-      <span class="count act">2</span>
+      <span class="count act" id="todoCount">0</span>
     </div>
     <div class="card-body">
-      <ul class="todo">
-        <li>
+      <ul class="todo" id="todoList">
+        <li data-id="example-2026-09-06">
           <span class="tag">Flagged</span>
-          <div>A Lazy Dog marketing email was auto-forwarded from
-            <strong>winterbot090</strong> to <strong>kathleenashley0402</strong>,
-            an address outside your five-alias chain. Held rather than trashed —
-            <a href="https://mail.google.com/mail/u/0/#all/1a05e4590bf7ceaf">open the thread</a>.</div>
-        </li>
-        <li>
-          <span class="tag">No time</span>
-          <div>A thread from Folsom Veterinary named a date but no time, so no
-            calendar event was created —
-            <a href="https://mail.google.com/mail/u/0/#all/0000000000000000">open the thread</a>.</div>
+          <div>Replace this list every run, one &lt;li&gt; per item. The tag is
+            the one-word reason it is here. The data-id MUST end in the run
+            date so dismissing an item today does not bury the same problem
+            tomorrow, and the &times; button is added by script — do not write
+            one into the markup.</div>
         </li>
       </ul>
+      <p class="all-clear" id="allClear" hidden>Nothing outstanding — everything
+        raised this morning has been dealt with.</p>
     </div>
   </section>
 
@@ -254,121 +468,440 @@ ul.todo a{color:var(--accent)}
 </div>
 
 <script>
-/* Money card. One data source (#txns); three derived things: the tab row, the
-   three figures, and the table. All of it recomputes on a tab click.
+/* ---- header + sync line, from #meta ---- */
+(function(){
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById('meta').textContent) || {}; }
+  catch(e){ meta = {}; }
+  if(meta.date){ document.getElementById('briefDate').textContent = meta.date; }
+  document.getElementById('syncedLine').textContent =
+    meta.synced || 'Sync time unavailable';
+})();
 
-   ALL deliberately excludes `transfer`, matching accountant_monthly: a card
-   payment is money already counted when the individual charges posted, so
-   counting it again doubles the month. Transfers stay inspectable under their
-   own tab, with their own totals - which is the reason the figures are computed
-   per selection instead of being written in once. */
-(function () {
-  var CANON = ["dining","grocery","shopping","utility","gas","travel",
-               "transfer","income","fee"];
+/* ---- money: one array in, everything else derived ----
+   Transfers are dropped outright: he does not want the rows, and a card
+   payment is money already counted when the charges it settles posted. */
+(function(){
+  var CANON = ['dining','grocery','shopping','utility','gas','travel',
+               'income','fee'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun',
+             'Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  var card = document.getElementById('moneyCard');
+  var tabBar = document.getElementById('tabs');
+  var catBox = document.getElementById('cats');
+  var ledger = document.getElementById('ledger');
+  var toggle = document.getElementById('ledgerToggle');
+  var label = document.getElementById('ledgerLabel');
+  var countEl = document.getElementById('txnCount');
+  var figIn = document.getElementById('figIn');
+  var figOut = document.getElementById('figOut');
+  var figNet = document.getElementById('figNet');
+  var active = 'all';
+
   var raw;
-  try { raw = JSON.parse(document.getElementById("txns").textContent) || []; }
-  catch (e) { raw = []; }
+  try { raw = JSON.parse(document.getElementById('txns').textContent) || []; }
+  catch(e){ raw = []; }
 
-  var rows = raw.map(function (r) {
-    return { date: String(r.date || ""), desc: String(r.desc || ""),
-             amt: Number(r.amt) || 0, cat: r.cat || "uncategorized" };
-  });
+  var rows = raw.map(function(r){
+    return { date: String(r.date || ''), desc: String(r.desc || ''),
+             amt: Number(r.amt) || 0, cat: r.cat || 'uncategorized' };
+  }).filter(function(r){ return r.cat !== 'transfer'; });
 
-  function money(n) {
-    var s = "$" + Math.abs(n).toLocaleString("en-US",
-      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return n < 0 ? "−" + s : s;
+  /* "2026-09-04" as a LOCAL date; new Date(str) parses it as UTC and shifts
+     the day backwards for anyone west of Greenwich. */
+  function parse(str){
+    var p = str.split('-');
+    return new Date(+p[0], (+p[1]) - 1, +p[2]);
+  }
+  function money(n){
+    var s = '$' + Math.abs(n).toLocaleString('en-US',
+      {minimumFractionDigits:2, maximumFractionDigits:2});
+    return n < 0 ? '−' + s : s;
   }
 
-  // Tabs: All first, then the canonical nine in his order, then uncategorized -
-  // but only the ones actually present this month, so the row stays short.
+  if(rows.length){
+    document.getElementById('moneyTitle').textContent = 'Money — '
+      + parse(rows[0].date).toLocaleDateString('en-US', {month:'long'});
+  }
+
+  /* --- bar graph: spend only, biggest first --- */
+  var spend = {}, maxSpend = 0;
+  rows.forEach(function(r){
+    if(r.amt < 0){ spend[r.cat] = (spend[r.cat] || 0) + (-r.amt); }
+  });
+  var spendCats = Object.keys(spend).sort(function(a, b){
+    return spend[b] - spend[a];
+  });
+  spendCats.forEach(function(c){ if(spend[c] > maxSpend){ maxSpend = spend[c]; } });
+
+  spendCats.forEach(function(c){
+    var b = document.createElement('button');
+    b.className = 'cat';
+    b.type = 'button';
+    b.setAttribute('data-tab', c);
+    var n = document.createElement('span');
+    n.className = 'cat-name'; n.textContent = c;
+    var bar = document.createElement('span');
+    bar.className = 'cat-bar';
+    var fill = document.createElement('i');
+    fill.style.width = (maxSpend ? (spend[c] / maxSpend) * 100 : 0) + '%';
+    bar.appendChild(fill);
+    var amt = document.createElement('span');
+    amt.className = 'cat-amt';
+    amt.textContent = '$' + spend[c].toLocaleString('en-US',
+      {minimumFractionDigits:2, maximumFractionDigits:2});
+    b.appendChild(n); b.appendChild(bar); b.appendChild(amt);
+    b.addEventListener('click', function(){ pick(c); });
+    catBox.appendChild(b);
+  });
+
+  /* --- tab strip: All, then only the categories actually present --- */
   var present = {};
-  rows.forEach(function (r) { present[r.cat] = (present[r.cat] || 0) + 1; });
-  var order = CANON.filter(function (c) { return present[c]; });
-  if (present.uncategorized) order.push("uncategorized");
+  rows.forEach(function(r){ present[r.cat] = (present[r.cat] || 0) + 1; });
+  var order = CANON.filter(function(c){ return present[c]; });
+  if(present.uncategorized){ order.push('uncategorized'); }
 
-  var allRows = rows.filter(function (r) { return r.cat !== "transfer"; });
-  var tabs = [{ key: "all", label: "All", n: allRows.length }].concat(
-    order.map(function (c) { return { key: c, label: c, n: present[c] }; }));
-
-  var tabBar = document.getElementById("tabs");
-  var tbody = document.getElementById("txn-rows");
-  var elIn = document.getElementById("fig-in");
-  var elOut = document.getElementById("fig-out");
-  var elNet = document.getElementById("fig-net");
-  var elCount = document.getElementById("txn-count");
-  var scroller = document.querySelector(".txn-scroll");
-
-  function select(key) {
-    var list = key === "all" ? allRows
-      : rows.filter(function (r) { return r.cat === key; });
-
-    var inSum = 0, outSum = 0;
-    list.forEach(function (r) {
-      if (r.amt > 0) inSum += r.amt; else outSum += -r.amt;
-    });
-    elIn.textContent = money(inSum);
-    elOut.textContent = money(outSum);
-    elNet.textContent = money(inSum - outSum);
-    elCount.textContent = list.length + (list.length === 1 ? " txn" : " txns");
-
-    Array.prototype.forEach.call(tabBar.children, function (b) {
-      b.setAttribute("aria-selected", String(b.getAttribute("data-key") === key));
+  [{k:'all', l:'All'}].concat(order.map(function(c){ return {k:c, l:c}; }))
+    .forEach(function(t){
+      var b = document.createElement('button');
+      b.className = 'tab';
+      b.type = 'button';
+      b.setAttribute('data-tab', t.k);
+      b.setAttribute('aria-pressed', String(t.k === 'all'));
+      b.textContent = t.l;
+      b.addEventListener('click', function(){ pick(t.k); });
+      tabBar.appendChild(b);
     });
 
-    tbody.textContent = "";
-    if (!list.length) {
-      var tr0 = document.createElement("tr");
-      var td0 = document.createElement("td");
-      td0.className = "blank"; td0.colSpan = 3;
-      td0.textContent = "Nothing this month.";
-      tr0.appendChild(td0); tbody.appendChild(tr0);
+  /* --- the ledger, grouped by day, newest first --- */
+  function buildLedger(list){
+    ledger.textContent = '';
+    if(!list.length){
+      var p0 = document.createElement('p');
+      p0.className = 'caveat';
+      p0.style.marginTop = '0';
+      p0.textContent = 'Nothing in this category this month.';
+      ledger.appendChild(p0);
       return;
     }
-    list.forEach(function (r) {
-      var tr = document.createElement("tr");
-
-      var d = document.createElement("td");
-      d.className = "d";
-      d.textContent = r.date.slice(5).replace("-", "/");
-      tr.appendChild(d);
-
-      var desc = document.createElement("td");
-      desc.className = "desc";
-      desc.appendChild(document.createTextNode(r.desc));
-      if (key === "all") {
-        var c = document.createElement("span");
-        c.className = "cat";
-        c.textContent = r.cat;
-        desc.appendChild(c);
-      }
-      tr.appendChild(desc);
-
-      var a = document.createElement("td");
-      a.className = "num amt " + (r.amt < 0 ? "neg" : "pos");
-      a.textContent = money(r.amt);
-      tr.appendChild(a);
-
-      tbody.appendChild(tr);
+    var days = [], byDay = {};
+    list.slice().sort(function(a, b){
+      if(a.date !== b.date){ return a.date < b.date ? 1 : -1; }
+      return Math.abs(b.amt) - Math.abs(a.amt);
+    }).forEach(function(r){
+      if(!byDay[r.date]){ byDay[r.date] = []; days.push(r.date); }
+      byDay[r.date].push(r);
     });
-    if (scroller) scroller.scrollTop = 0;
+
+    days.forEach(function(d, i){
+      var when = parse(d);
+      var wrap = document.createElement('div');
+      wrap.className = 'day' + (i === 0 ? ' lead' : '');
+      var head = document.createElement('p');
+      head.className = 'day-label';
+      head.textContent = DAY[when.getDay()] + ' ' + MON[when.getMonth()]
+        + ' ' + when.getDate();
+      wrap.appendChild(head);
+
+      var box = document.createElement('div');
+      box.className = 'txns';
+      byDay[d].forEach(function(r){
+        var row = document.createElement('div');
+        row.className = 'txn';
+        var main = document.createElement('div');
+        main.className = 'txn-main';
+        var nm = document.createElement('div');
+        nm.className = 'txn-name'; nm.textContent = r.desc;
+        var mt = document.createElement('div');
+        mt.className = 'txn-meta'; mt.textContent = r.cat;
+        main.appendChild(nm); main.appendChild(mt);
+        var amt = document.createElement('div');
+        amt.className = 'txn-amt' + (r.amt > 0 ? ' pos' : '');
+        amt.textContent = (r.amt > 0 ? '+' : '') + money(r.amt);
+        row.appendChild(main); row.appendChild(amt);
+        box.appendChild(row);
+      });
+      wrap.appendChild(box);
+      ledger.appendChild(wrap);
+    });
   }
 
-  tabs.forEach(function (t) {
-    var b = document.createElement("button");
-    b.className = "tab";
-    b.type = "button";
-    b.setAttribute("role", "tab");
-    b.setAttribute("data-key", t.key);
-    b.appendChild(document.createTextNode(t.label));
-    var n = document.createElement("span");
-    n.className = "n";
-    n.textContent = t.n;
-    b.appendChild(n);
-    b.addEventListener("click", function () { select(t.key); });
-    tabBar.appendChild(b);
+  function pick(cat){
+    active = cat;
+    var list = cat === 'all' ? rows
+      : rows.filter(function(r){ return r.cat === cat; });
+
+    var inSum = 0, outSum = 0;
+    list.forEach(function(r){
+      if(r.amt > 0){ inSum += r.amt; } else { outSum += -r.amt; }
+    });
+    figIn.textContent = money(inSum);
+    figOut.textContent = money(outSum);
+    figNet.textContent = money(inSum - outSum);
+    countEl.textContent = list.length + (list.length === 1 ? ' txn' : ' txns');
+
+    Array.prototype.forEach.call(tabBar.children, function(b){
+      b.setAttribute('aria-pressed',
+        String(b.getAttribute('data-tab') === cat));
+    });
+    Array.prototype.forEach.call(catBox.children, function(b){
+      b.classList.toggle('on', b.getAttribute('data-tab') === cat);
+    });
+    card.classList.toggle('picked', cat !== 'all');
+
+    buildLedger(list);
+    label.textContent = (ledger.hidden ? 'Show ' : 'Hide ') + list.length
+      + (list.length === 1 ? ' transaction' : ' transactions');
+  }
+
+  toggle.addEventListener('click', function(){
+    ledger.hidden = !ledger.hidden;
+    toggle.setAttribute('aria-expanded', String(!ledger.hidden));
+    pick(active);
   });
 
-  select("all");
+  pick('all');
+})();
+
+/* ---- card credits: cycle maths, sorting, and the used-ticks ---- */
+(function(){
+  var card = document.getElementById('creditsCard');
+  var body = document.getElementById('credsScroll');
+  var scrollWrap = document.getElementById('credsWrap');
+  var openEl = document.getElementById('creditsOpen');
+  var rows = Array.prototype.slice.call(card.querySelectorAll('.cred'));
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun',
+             'Jul','Aug','Sep','Oct','Nov','Dec'];
+  var used = {};   /* id -> true, only for the cycle in force right now */
+
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+  /* The window a credit is sitting in today. A stored tick carries the
+     cycle it was made in, so when the cycle rolls the tick stops
+     counting and the credit comes back on its own — no cron, no reset. */
+  function cycleOf(period, d){
+    var y = d.getFullYear(), m = d.getMonth();
+    if(period === 'monthly'){ return y + '-' + pad(m + 1); }
+    if(period === 'quarterly'){ return y + '-Q' + (Math.floor(m / 3) + 1); }
+    if(period === 'semiannual'){ return y + '-H' + (m < 6 ? 1 : 2); }
+    return String(y);
+  }
+
+  /* Last day the credit can still be spent in that window. */
+  function endOf(period, d){
+    var y = d.getFullYear(), m = d.getMonth();
+    if(period === 'monthly'){ return new Date(y, m + 1, 0); }
+    if(period === 'quarterly'){ return new Date(y, Math.floor(m / 3) * 3 + 3, 0); }
+    if(period === 'semiannual'){ return new Date(y, m < 6 ? 6 : 12, 0); }
+    return new Date(y, 12, 0);
+  }
+
+  function money(n){
+    return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
+  }
+
+  /* Cents only where a credit actually has them (Walmart+ at $12.95). */
+  function exact(n){
+    return '$' + n.toLocaleString('en-US', {
+      minimumFractionDigits: (n % 1 === 0) ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function render(){
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var groups = [], byKey = {}, open = 0, i;
+
+    for(i = 0; i < rows.length; i++){
+      var row = rows[i];
+      var period = row.getAttribute('data-period');
+      var end = endOf(period, today);
+      var key = end.getFullYear() + '-' + pad(end.getMonth() + 1)
+        + '-' + pad(end.getDate());
+      var amt = parseFloat(row.getAttribute('data-amt'));
+      var isUsed = used[row.getAttribute('data-id')] === true;
+      var claimed = isUsed ? amt : 0;
+      var left = amt - claimed;
+      var days = Math.max(0, Math.round((end - today) / 86400000));
+
+      row.setAttribute('aria-pressed', String(isUsed));
+      row.querySelector('.cred-track i').style.width =
+        (amt > 0 ? (claimed / amt) * 100 : 0) + '%';
+      row.querySelector('.cl-l').textContent = exact(claimed) + ' claimed';
+      var right = row.querySelector('.cl-r');
+      right.textContent = isUsed ? 'Claimed' : exact(left) + ' to go';
+      right.className = 'cl-r' + (!isUsed && days <= 14 ? ' soon' : '');
+      open += left;
+
+      if(!byKey[key]){
+        byKey[key] = {key:key, end:end, rows:[]};
+        groups.push(byKey[key]);
+      }
+      byKey[key].rows.push(row);
+    }
+
+    groups.sort(function(a, b){ return a.end - b.end; });
+
+    var oldGroups = card.querySelectorAll('.cgroup');
+    for(i = 0; i < oldGroups.length; i++){ oldGroups[i].remove(); }
+
+    for(i = 0; i < groups.length; i++){
+      var g = groups[i];
+      var days = Math.max(0, Math.round((g.end - today) / 86400000));
+
+      g.rows.sort(function(a, b){
+        return parseFloat(b.getAttribute('data-amt'))
+             - parseFloat(a.getAttribute('data-amt'));
+      });
+
+      var wrap = document.createElement('div');
+      wrap.className = 'cgroup';
+      var head = document.createElement('p');
+      head.className = 'cgroup-head';
+      var left = document.createElement('span');
+      left.textContent = days + (days === 1 ? ' day left' : ' days left');
+      if(days <= 14){ left.className = 'soon'; }
+      var when = document.createElement('span');
+      when.textContent = 'Ends ' + MON[g.end.getMonth()] + ' ' + g.end.getDate();
+      head.appendChild(when);
+      head.appendChild(left);
+      var list = document.createElement('div');
+      list.className = 'creds';
+      for(var j = 0; j < g.rows.length; j++){ list.appendChild(g.rows[j]); }
+      wrap.appendChild(head);
+      wrap.appendChild(list);
+      body.appendChild(wrap);
+    }
+
+    openEl.textContent = money(open) + ' open';
+    fade();
+  }
+
+  /* Hide the bottom fade once there is nothing left to scroll to. */
+  function fade(){
+    var slack = body.scrollHeight - body.clientHeight - body.scrollTop;
+    scrollWrap.classList.toggle('at-end', slack <= 2);
+  }
+  body.addEventListener('scroll', fade);
+
+  render();
+
+  if(!window.claude || typeof claude.use !== 'function'){
+    card.classList.add('nosync');
+    return;
+  }
+
+  claude.use('db').then(function(db){
+    if(!db){ card.classList.add('nosync'); return; }
+    var creds = db.collection('credits');
+
+    creds.onSnapshot(function(snap){
+      var today = new Date();
+      used = {};
+      for(var i = 0; i < snap.docs.length; i++){
+        var doc = snap.docs[i], d = doc.data() || {};
+        var row = card.querySelector('.cred[data-id="' + doc.id + '"]');
+        if(!row){ continue; }
+        var period = row.getAttribute('data-period');
+        if(d.used === true && d.cycle === cycleOf(period, today)){
+          used[doc.id] = true;
+        }
+      }
+      render();
+    }, function(){ card.classList.add('nosync'); });
+
+    for(var i = 0; i < rows.length; i++){
+      (function(row){
+        row.addEventListener('click', function(){
+          var id = row.getAttribute('data-id');
+          var next = used[id] !== true;
+          used[id] = next;
+          render();
+          creds.doc(id).set({
+            used: next,
+            claimed: next ? parseFloat(row.getAttribute('data-amt')) : 0,
+            cycle: cycleOf(row.getAttribute('data-period'), new Date()),
+            at: new Date().toISOString()
+          })['catch'](function(){
+            used[id] = !next;
+            render();
+          });
+        });
+      })(rows[i]);
+    }
+  })['catch'](function(){ card.classList.add('nosync'); });
+})();
+
+/* ---- requires action: dismiss what's been dealt with ---- */
+(function(){
+  var list = document.getElementById('todoList');
+  var countEl = document.getElementById('todoCount');
+  var clearEl = document.getElementById('allClear');
+  var items = Array.prototype.slice.call(list.querySelectorAll('li'));
+  var gone = {};
+
+  /* The dismiss button is added here so phase 3 only has to write the <li>. */
+  items.forEach(function(li){
+    if(li.querySelector('.dismiss')){ return; }
+    var b = document.createElement('button');
+    b.className = 'dismiss';
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Dismiss this item');
+    b.appendChild(document.createTextNode('×'));
+    li.appendChild(b);
+  });
+
+  function render(){
+    var live = 0;
+    for(var i = 0; i < items.length; i++){
+      var off = gone[items[i].getAttribute('data-id')] === true;
+      items[i].hidden = off;
+      if(!off){ live++; }
+    }
+    countEl.textContent = live === 0 ? 'clear' : String(live);
+    countEl.className = live === 0 ? 'count' : 'count act';
+    list.hidden = live === 0;
+    clearEl.hidden = live !== 0;
+  }
+
+  render();
+
+  if(!window.claude || typeof claude.use !== 'function'){ return; }
+
+  claude.use('db').then(function(db){
+    if(!db){ return; }
+    var actions = db.collection('actions');
+
+    actions.onSnapshot(function(snap){
+      gone = {};
+      for(var i = 0; i < snap.docs.length; i++){
+        var d = snap.docs[i].data() || {};
+        if(d.dismissed === true){ gone[snap.docs[i].id] = true; }
+      }
+      render();
+    }, function(){});
+
+    for(var i = 0; i < items.length; i++){
+      (function(li){
+        var btn = li.querySelector('.dismiss');
+        if(!btn){ return; }
+        btn.addEventListener('click', function(){
+          var id = li.getAttribute('data-id');
+          gone[id] = true;
+          render();
+          actions.doc(id).set({
+            dismissed: true,
+            at: new Date().toISOString()
+          })['catch'](function(){
+            delete gone[id];
+            render();
+          });
+        });
+      })(items[i]);
+    }
+  })['catch'](function(){});
 })();
 </script>
