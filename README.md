@@ -10,8 +10,8 @@ three status emails that arrived in the inbox the pipeline itself was trying to
 clean.
 
 It also used to run a job-application pipeline — seven ATS APIs, scored postings,
-generated cover letters. That was switched off on 2026-09-04; the code is still
-here, detached. See [Job tracking, removed](#job-tracking-removed).
+generated cover letters. That was switched off on 2026-09-04 and removed on
+2026-09-06. See [Job tracking, removed](#job-tracking-removed).
 
 ---
 
@@ -51,7 +51,7 @@ Three phases. Each is a separate scheduled job with its own failure domain.
           │     intents → events       │            (Supabase)
           └────────────────────────────┘                │
   8:00am  ┌────────────────────────────┐                │
-  ──────► │ 3   build the report       │  ◄─────────────┘
+  ──────► │ 3   build the tracker page │  ◄─────────────┘
           └────────────────────────────┘
                         │
                         ▼
@@ -124,7 +124,8 @@ takes `accountant_transactions`.
 
 **SimpleFIN, and nothing else** (changed 2026-09-05). The
 `accountant-simplefin-sweep` edge function pulls all eight active accounts
-directly from the banks on a `pg_cron` schedule (1:37pm PT) and writes through the
+directly from the banks on a `pg_cron` schedule (7:30am PT, thirty minutes ahead
+of the report that reads it) and writes through the
 `accountant_ingest` function, which dedupes on `external_id` and applies the
 merchant maps as it goes.
 
@@ -141,6 +142,43 @@ draw the morning report. Anything older than SimpleFIN's reach comes in by CSV
 through `accountant_ingest` — and that reach was **measured at about six months**
 on 2026-09-06, so 2025-03-13 → 2026-03-18 stays empty until bank CSVs are loaded.
 See `accountant/README.md`.
+
+## The page
+
+One artifact, republished in place at the same URL every morning so a phone
+home-screen icon keeps working. Four cards: money, card credits, nutrition, and
+whatever needs a human.
+
+**Phase 3 fills three holes and derives nothing.** `#meta` carries the date and
+the sync line, `#txns` carries every transaction, and the Requires Action list is
+one `<li>` per item. The month label, the category tabs, the three figures, the
+spend bars and the day-grouped ledger are all computed in the page from `#txns`.
+Nothing is hand-copied, so nothing can drift out of sync with the rows it claims
+to summarize — the failure mode of the previous version, which asked the routine
+to write both the rows and their totals.
+
+**The money card pages through history.** A navigator bar with an arrow at each
+end walks 30 months back to May 2023. Transfers are dropped everywhere — a card
+payment is money already counted when the charges it settles posted, so showing
+both double-counts the month. The transaction list is collapsed by default: the
+figures and the bars are the daily read, the individual rows are the follow-up.
+
+**A month that predates the data is labeled, not hidden.** `#meta.complete_from`
+names the first trustworthy month; anything earlier gets an "incomplete" note.
+SimpleFIN reaches back about six months and there is nothing at all between March
+2025 and March 2026, so without this the navigator would show a three-transaction
+March 2026 as though it were a whole month. A gap that announces itself is a gap;
+a gap that renders as a small number is a lie.
+
+**What the reader changes lives outside the HTML.** Card credits are ticked off
+as they are claimed, and Requires Action items are dismissed with an ×. Both are
+stored in the artifact's own document store rather than in the page, because the
+page is overwritten every morning — state written into the markup would not
+survive its own next publish. Credits carry the cycle they were ticked in
+(`2026-Q3`, `2026-09`), so a tick stops counting when its cycle rolls and the
+credit comes back on its own, with no job to reset it. Dismissals carry the run
+date for the same reason: a problem dismissed today reappears tomorrow if it is
+still true.
 
 ## Design decisions worth defending
 
@@ -161,7 +199,7 @@ email.
 private life — merchant names, vendors, amounts — lives in the database rather
 than a config file. Gmail label IDs and calendar IDs are here; addresses, phone
 numbers, and merchant names are not. `config/identity.yaml` — a real address
-and phone number, used by detached phase 1 — is gitignored, with an example file
+and phone number, used by the removed phase 1 — is gitignored, with an example file
 committed in its place.
 
 **A rename does not reach inside a function.** A plpgsql body is stored as text
@@ -194,7 +232,7 @@ The three live phases have been running unattended since 2026-09-01.
 | 2 — email sweep | Live | 11 scanned, 6 labeled |
 | SimpleFIN sweep | Live | 8 accounts, 449 rows loaded 2026-09-06, daily `pg_cron` at 7:30am PT |
 | 2b — calendar drain | Live | no pending intents |
-| 3 — morning report | Live | report published, 2 items needing a human |
+| 3 — morning report | Live | published 2026-09-07, 2,076 transactions, nothing needing a human |
 | 1a — ingest, 7 sources | **Removed** 2026-09-06 | detached 2026-09-04 |
 | 1b — score and prepare | **Removed** 2026-09-06 | routine still disabled |
 
