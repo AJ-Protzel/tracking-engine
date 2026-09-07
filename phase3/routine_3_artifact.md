@@ -202,8 +202,19 @@ Publish with the Artifact tool, passing `url` =
 updates in place. **Never publish without that URL** — publishing without it
 creates a second artifact and his home-screen icon silently stops updating.
 Favicon stays 🌅 and the title stays "Tracking Engine" — renamed from
-"Tracking Engine Brief" on 2026-09-06. The template already carries it; do not
-re-type it from memory.
+"Tracking Engine Brief" on 2026-09-06.
+
+**The template is the page.** Copy its markup verbatim and fill only the holes
+named above. Never re-type its title, headings, structure, styles or scripts from
+memory or from a version you remember — this page is redesigned often and your
+memory of it is always the older one. On 2026-09-07 this routine republished the
+previous title over a template that already carried the correct one, because two
+sentences here still described the old page.
+
+That is also the rule for resolving a disagreement: **this file governs data and
+behaviour; the template governs markup.** If they conflict about markup, the
+template wins and the mismatch goes in your run summary rather than being decided
+by you.
 
 ## There is no wedding step
 
