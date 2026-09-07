@@ -96,7 +96,9 @@ because they are glanceable; the one that needs him comes last. **Do not add
 cards back that he removed** — Inbox, Pipeline, System, and Today's Applications
 were all cut deliberately, along with the phase-health dots in the masthead.
 
-**Masthead** — "Morning Brief" and the date. No time, no status dots.
+**Masthead** — the date alone. The "Morning Brief" heading was removed on
+2026-09-06: he knows what the page is, and it tracks more than a morning. No
+title, no time, no status dots.
 
 1. **Money** — the heading writes itself. Fill in **two script blocks and
    nothing else** on this card.
@@ -199,7 +201,9 @@ Publish with the Artifact tool, passing `url` =
 `https://claude.ai/code/artifact/fb3d377a-c279-4b59-b182-2b90616d084d` so it
 updates in place. **Never publish without that URL** — publishing without it
 creates a second artifact and his home-screen icon silently stops updating.
-Favicon stays 🌅 and the title stays "Tracking Engine Brief".
+Favicon stays 🌅 and the title stays "Tracking Engine" — renamed from
+"Tracking Engine Brief" on 2026-09-06. The template already carries it; do not
+re-type it from memory.
 
 ## There is no wedding step
 
