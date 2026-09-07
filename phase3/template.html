@@ -1,4 +1,4 @@
-<title>Tracking Engine Brief</title>
+<title>Tracking Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -80,7 +80,21 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
   border-radius:13px 13px 0 0;border-bottom:1px solid var(--line-2);
   box-shadow:var(--sticky-shadow)}
 
-.figs{display:flex;gap:10px;padding:0 18px}
+/* month navigator: one bar the width of the card, arrows at both ends. The
+   middle is a button too - it jumps back to the newest month. */
+.monthnav{display:flex;align-items:stretch;margin:15px 18px 0;overflow:hidden;
+  border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
+.mnav{flex:none;width:46px;padding:9px 0;font:inherit;font-size:18px;
+  line-height:1.2;cursor:pointer;background:none;border:none;color:var(--ink-2)}
+.mnav:hover:not(:disabled){background:var(--card);color:var(--ink)}
+.mnav:disabled{opacity:.28;cursor:default}
+.mnav-mid{flex:1;min-width:0;padding:9px 4px;border:none;background:none;
+  cursor:pointer;color:var(--ink);
+  font-family:"Bricolage Grotesque","Public Sans",sans-serif;
+  font-size:15px;font-weight:700;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mnav-mid:hover{background:var(--card)}
+.figs{display:flex;gap:10px;padding:12px 18px 0}
 .fig{flex:1;min-width:0;border-radius:10px;padding:10px;background:var(--sunk)}
 .fig.in{background:var(--in-soft)}
 .fig.out{background:var(--out-soft)}
@@ -253,10 +267,11 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
      ========================================================================== -->
 
 <script type="application/json" id="meta">
-{"date":"Sunday, September 6 2026","synced":"Synced Sep 6 at 7:30 AM"}
+{"date":"Sunday, September 6 2026","synced":"Synced Sep 6 at 7:30 AM","complete_from":"2026-08"}
 </script>
 
-<!-- CURRENT CALENDAR MONTH ONLY. `amt` is signed exactly as
+<!-- EVERY MONTH, not just this one - the navigator scrolls back through them.
+     `amt` is signed exactly as
      accountant_transactions stores it: negative out, positive in. `cat` null
      renders as "uncategorized". Rows with cat "transfer" are DROPPED by the
      page - he does not want them shown, and a card payment is money already
@@ -275,7 +290,6 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
 <div class="wrap">
 
 <header class="top">
-  <h1>Morning Brief</h1>
   <div class="date" id="briefDate">Sunday, September 6 2026</div>
 </header>
 
@@ -285,9 +299,10 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   <section class="card money-card" id="moneyCard">
 
     <div class="stick">
-      <div class="card-head">
-        <h2 id="moneyTitle">Money</h2>
-        <span class="count" id="txnCount">0 txns</span>
+      <div class="monthnav">
+        <button class="mnav" id="mPrev" type="button" aria-label="Earlier month">&lsaquo;</button>
+        <button class="mnav-mid" id="monthLabel" type="button" aria-label="Jump to the latest month">September 2026</button>
+        <button class="mnav" id="mNext" type="button" aria-label="Later month">&rsaquo;</button>
       </div>
       <div class="figs">
         <div class="fig in">
@@ -317,6 +332,7 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
       </button>
       <div class="ledger" id="ledger" hidden></div>
 
+      <p class="caveat" id="gapNote" hidden></p>
       <p class="caveat" id="syncedLine">Synced</p>
     </div>
   </section>
@@ -476,16 +492,21 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   if(meta.date){ document.getElementById('briefDate').textContent = meta.date; }
   document.getElementById('syncedLine').textContent =
     meta.synced || 'Sync time unavailable';
+  window.__completeFrom = meta.complete_from || '';
 })();
 
 /* ---- money: one array in, everything else derived ----
-   Transfers are dropped outright: he does not want the rows, and a card
-   payment is money already counted when the charges it settles posted. */
+   #txns carries MANY months. The navigator picks one; the figures, tabs, bars
+   and ledger are all rebuilt for whichever is showing. Transfers are dropped
+   outright: he does not want the rows, and a card payment is money already
+   counted when the charges it settles posted. */
 (function(){
   var CANON = ['dining','grocery','shopping','utility','gas','travel',
                'income','fee'];
   var MON = ['Jan','Feb','Mar','Apr','May','Jun',
              'Jul','Aug','Sep','Oct','Nov','Dec'];
+  var FULL = ['January','February','March','April','May','June','July',
+              'August','September','October','November','December'];
   var DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   var card = document.getElementById('moneyCard');
@@ -494,10 +515,13 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   var ledger = document.getElementById('ledger');
   var toggle = document.getElementById('ledgerToggle');
   var label = document.getElementById('ledgerLabel');
-  var countEl = document.getElementById('txnCount');
   var figIn = document.getElementById('figIn');
   var figOut = document.getElementById('figOut');
   var figNet = document.getElementById('figNet');
+  var gapNote = document.getElementById('gapNote');
+  var mPrev = document.getElementById('mPrev');
+  var mNext = document.getElementById('mNext');
+  var mLabel = document.getElementById('monthLabel');
   var active = 'all';
 
   var raw;
@@ -507,7 +531,17 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   var rows = raw.map(function(r){
     return { date: String(r.date || ''), desc: String(r.desc || ''),
              amt: Number(r.amt) || 0, cat: r.cat || 'uncategorized' };
-  }).filter(function(r){ return r.cat !== 'transfer'; });
+  }).filter(function(r){ return r.cat !== 'transfer' && r.date.length >= 7; });
+
+  /* Bucket by calendar month, newest first. mi indexes `months`. */
+  var byMonth = {}, months = [];
+  rows.forEach(function(r){
+    var k = r.date.slice(0, 7);
+    if(!byMonth[k]){ byMonth[k] = []; months.push(k); }
+    byMonth[k].push(r);
+  });
+  months.sort().reverse();
+  var mi = 0;
 
   /* "2026-09-04" as a LOCAL date; new Date(str) parses it as UTC and shifts
      the day backwards for anyone west of Greenwich. */
@@ -520,60 +554,65 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
       {minimumFractionDigits:2, maximumFractionDigits:2});
     return n < 0 ? '−' + s : s;
   }
-
-  if(rows.length){
-    document.getElementById('moneyTitle').textContent = 'Money — '
-      + parse(rows[0].date).toLocaleDateString('en-US', {month:'long'});
+  function monthName(key){
+    var p = key.split('-');
+    return FULL[(+p[1]) - 1] + ' ' + p[0];
   }
 
-  /* --- bar graph: spend only, biggest first --- */
-  var spend = {}, maxSpend = 0;
-  rows.forEach(function(r){
-    if(r.amt < 0){ spend[r.cat] = (spend[r.cat] || 0) + (-r.amt); }
-  });
-  var spendCats = Object.keys(spend).sort(function(a, b){
-    return spend[b] - spend[a];
-  });
-  spendCats.forEach(function(c){ if(spend[c] > maxSpend){ maxSpend = spend[c]; } });
+  function current(){ return months.length ? byMonth[months[mi]] : []; }
 
-  spendCats.forEach(function(c){
-    var b = document.createElement('button');
-    b.className = 'cat';
-    b.type = 'button';
-    b.setAttribute('data-tab', c);
-    var n = document.createElement('span');
-    n.className = 'cat-name'; n.textContent = c;
-    var bar = document.createElement('span');
-    bar.className = 'cat-bar';
-    var fill = document.createElement('i');
-    fill.style.width = (maxSpend ? (spend[c] / maxSpend) * 100 : 0) + '%';
-    bar.appendChild(fill);
-    var amt = document.createElement('span');
-    amt.className = 'cat-amt';
-    amt.textContent = '$' + spend[c].toLocaleString('en-US',
-      {minimumFractionDigits:2, maximumFractionDigits:2});
-    b.appendChild(n); b.appendChild(bar); b.appendChild(amt);
-    b.addEventListener('click', function(){ pick(c); });
-    catBox.appendChild(b);
-  });
-
-  /* --- tab strip: All, then only the categories actually present --- */
-  var present = {};
-  rows.forEach(function(r){ present[r.cat] = (present[r.cat] || 0) + 1; });
-  var order = CANON.filter(function(c){ return present[c]; });
-  if(present.uncategorized){ order.push('uncategorized'); }
-
-  [{k:'all', l:'All'}].concat(order.map(function(c){ return {k:c, l:c}; }))
-    .forEach(function(t){
-      var b = document.createElement('button');
-      b.className = 'tab';
-      b.type = 'button';
-      b.setAttribute('data-tab', t.k);
-      b.setAttribute('aria-pressed', String(t.k === 'all'));
-      b.textContent = t.l;
-      b.addEventListener('click', function(){ pick(t.k); });
-      tabBar.appendChild(b);
+  /* --- bar graph: spend only, biggest first, for the month on screen --- */
+  function buildCats(list){
+    catBox.textContent = '';
+    var spend = {}, max = 0;
+    list.forEach(function(r){
+      if(r.amt < 0){ spend[r.cat] = (spend[r.cat] || 0) + (-r.amt); }
     });
+    var keys = Object.keys(spend).sort(function(a,b){ return spend[b]-spend[a]; });
+    keys.forEach(function(c){ if(spend[c] > max){ max = spend[c]; } });
+
+    keys.forEach(function(c){
+      var b = document.createElement('button');
+      b.className = 'cat';
+      b.type = 'button';
+      b.setAttribute('data-tab', c);
+      var n = document.createElement('span');
+      n.className = 'cat-name'; n.textContent = c;
+      var bar = document.createElement('span');
+      bar.className = 'cat-bar';
+      var fill = document.createElement('i');
+      fill.style.width = (max ? (spend[c] / max) * 100 : 0) + '%';
+      bar.appendChild(fill);
+      var amt = document.createElement('span');
+      amt.className = 'cat-amt';
+      amt.textContent = '$' + spend[c].toLocaleString('en-US',
+        {minimumFractionDigits:2, maximumFractionDigits:2});
+      b.appendChild(n); b.appendChild(bar); b.appendChild(amt);
+      b.addEventListener('click', function(){ pick(c); });
+      catBox.appendChild(b);
+    });
+  }
+
+  /* --- tab strip: All, then only the categories present that month --- */
+  function buildTabs(list){
+    tabBar.textContent = '';
+    var present = {};
+    list.forEach(function(r){ present[r.cat] = (present[r.cat] || 0) + 1; });
+    var order = CANON.filter(function(c){ return present[c]; });
+    if(present.uncategorized){ order.push('uncategorized'); }
+
+    [{k:'all', l:'All'}].concat(order.map(function(c){ return {k:c, l:c}; }))
+      .forEach(function(t){
+        var b = document.createElement('button');
+        b.className = 'tab';
+        b.type = 'button';
+        b.setAttribute('data-tab', t.k);
+        b.textContent = t.l;
+        b.addEventListener('click', function(){ pick(t.k); });
+        tabBar.appendChild(b);
+      });
+    return present;
+  }
 
   /* --- the ledger, grouped by day, newest first --- */
   function buildLedger(list){
@@ -628,10 +667,37 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
     });
   }
 
+  /* Rebuild everything for the month on screen, keeping the chosen category
+     when that month also has it. */
+  function showMonth(){
+    var list = current();
+    var key = months.length ? months[mi] : '';
+
+    mLabel.textContent = key ? monthName(key) : 'No transactions';
+    /* months[] is newest-first, so a HIGHER index is further back */
+    mNext.disabled = mi <= 0;
+    mPrev.disabled = mi >= months.length - 1;
+
+    var present = buildTabs(list);
+    buildCats(list);
+    if(active !== 'all' && !present[active]){ active = 'all'; }
+
+    var from = window.__completeFrom || '';
+    var thin = from && key && key < from;
+    gapNote.hidden = !thin;
+    if(thin){
+      gapNote.textContent = 'The bank feed only reaches back to '
+        + monthName(from) + ', so this month is incomplete — some accounts have '
+        + 'no data before then.';
+    }
+    pick(active);
+  }
+
   function pick(cat){
     active = cat;
-    var list = cat === 'all' ? rows
-      : rows.filter(function(r){ return r.cat === cat; });
+    var all = current();
+    var list = cat === 'all' ? all
+      : all.filter(function(r){ return r.cat === cat; });
 
     var inSum = 0, outSum = 0;
     list.forEach(function(r){
@@ -640,7 +706,6 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
     figIn.textContent = money(inSum);
     figOut.textContent = money(outSum);
     figNet.textContent = money(inSum - outSum);
-    countEl.textContent = list.length + (list.length === 1 ? ' txn' : ' txns');
 
     Array.prototype.forEach.call(tabBar.children, function(b){
       b.setAttribute('aria-pressed',
@@ -656,13 +721,23 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
       + (list.length === 1 ? ' transaction' : ' transactions');
   }
 
+  mPrev.addEventListener('click', function(){
+    if(mi < months.length - 1){ mi++; showMonth(); }
+  });
+  mNext.addEventListener('click', function(){
+    if(mi > 0){ mi--; showMonth(); }
+  });
+  mLabel.addEventListener('click', function(){
+    if(mi !== 0){ mi = 0; showMonth(); }
+  });
+
   toggle.addEventListener('click', function(){
     ledger.hidden = !ledger.hidden;
     toggle.setAttribute('aria-expanded', String(!ledger.hidden));
     pick(active);
   });
 
-  pick('all');
+  showMonth();
 })();
 
 /* ---- card credits: cycle maths, sorting, and the used-ticks ---- */

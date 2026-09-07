@@ -58,11 +58,12 @@ select distinct on (phase) phase, status, started_at, finished_at, counts, summa
   from engine_phase_runs order by phase, started_at desc;
 
 -- money: the current calendar month, every row, newest first. This one query
--- feeds the whole Money card -- figures, tabs and table all derive from it in
--- the page, so do not also query accountant_monthly and hand-copy totals.
+-- feeds the whole Money card. EVERY month, not just this one: the card has a
+-- navigator that pages back through history. Figures, tabs, bars and the ledger
+-- all derive from this in the page, so never hand-copy a total from
+-- accountant_monthly.
 select date, description, category, amount
   from accountant_transactions
- where date >= date_trunc('month', current_date)::date
  order by date desc, id desc;
 
 -- when the bank feed last loaded; this is the `synced` line, not your run time
@@ -100,25 +101,49 @@ were all cut deliberately, along with the phase-health dots in the masthead.
 1. **Money** — the heading writes itself. Fill in **two script blocks and
    nothing else** on this card.
 
-   **`<script type="application/json" id="meta">`** — one object:
-   `{"date":"Sunday, September 6 2026","synced":"Synced Sep 6 at 7:30 AM"}`.
-   `date` is the masthead date. `synced` is the ONE line at the bottom of the
-   money card and it must name the real last SimpleFIN load, not your own run
-   time — read `max(ran_at)` from `accountant_phase_runs` where `mode = 'sweep'`
-   and render it in PT as `Synced Mon D at H:MM AM`. If there is no sweep row at
-   all, write `Never synced`.
+   **`<script type="application/json" id="meta">`** — one object with three keys:
+   `{"date":"…","synced":"…","complete_from":"2026-08"}`.
 
-   **`<script type="application/json" id="txns">`** — the rows from the month
-   query, newest first, as
+   - `date` — the masthead date. There is no title above it any more; he knows
+     what the page is.
+   - `synced` — the ONE line at the bottom of the money card. It must name the
+     real last SimpleFIN load, not your own run time: read `max(ran_at)` from
+     `accountant_phase_runs` where `mode = 'sweep'` and render it in PT as
+     `Synced Mon D at H:MM AM`. If there is no sweep row at all, write
+     `Never synced`.
+   - `complete_from` — the first `YYYY-MM` whose data is trustworthy. Any month
+     the navigator reaches before it gets an "incomplete" note, because the
+     SimpleFIN feed only reaches back about six months and the older months are
+     partial CSV imports. Leave it at `2026-08` unless the gap in section 5 of
+     the handoff has actually been filled; lowering it silently turns a partial
+     month into a number he will trust.
+
+   **`<script type="application/json" id="txns">`** — EVERY transaction, all
+   months, newest first, as
    `{"date":"YYYY-MM-DD","desc":"…","cat":"grocery"|null,"amt":-12.34}`.
    `amt` is the signed `amount` straight from the table — negative out, positive
    in, on credit and debit alike. **Do not re-derive the sign, do not take the
    absolute value, and do not pre-compute any total.**
 
-   The page derives everything else from that array on its own: the month name in
-   the heading, the category tab row, the per-tab counts, the three figures, the
-   spend-by-category bar graph, and the day-grouped ledger. There is nothing else
-   on this card for you to keep in sync, and hand-writing any of it is a bug.
+   Changed 2026-09-06 PM: this used to be the current month only. The card now
+   carries a MONTH NAVIGATOR — a full-width bar with an arrow at each end — so he
+   can page back through history from his phone. Send the whole table:
+
+   ```sql
+   select date, description, category, amount
+     from accountant_transactions
+    order by date desc, id desc;
+   ```
+
+   That is roughly 2,000 rows and about 130 KB of JSON, which is nothing against
+   the 16 MB artifact ceiling. Do not paginate it, do not cut it to a window, and
+   do not sort it in the page's favour — it buckets by month itself.
+
+   The page derives everything else from that array on its own: which months
+   exist and their order, the month label, the category tab row, the three
+   figures, the spend-by-category bar graph, and the day-grouped ledger — all
+   rebuilt for whichever month is showing. There is nothing else on this card for
+   you to keep in sync, and hand-writing any of it is a bug.
 
    Two rules the page bakes in, so you do not have to: **transfer rows are
    dropped entirely** — he does not want them on the page, and a card payment is
