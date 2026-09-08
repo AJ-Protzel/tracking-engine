@@ -1,349 +1,129 @@
 # tracking-engine
 
-A personal data pipeline that runs on hosted infrastructure with no machine of
-mine involved. It sweeps and organizes an email account, turns receipts into a
-ledger, drains anything date-shaped onto a calendar, records what it did, and
-renders one report each morning — ready before I wake up.
+A personal tracking system for one person. Bank transactions and email arrive on
+their own and are swept automatically; everything else is added by talking to
+the skill that owns it. One private web page shows the result.
 
-It replaces two earlier systems that worked separately and never joined up, plus
-three status emails that arrived in the inbox the pipeline itself was trying to
-clean.
-
-It also used to run a job-application pipeline — seven ATS APIs, scored postings,
-generated cover letters. That was switched off on 2026-09-04 and removed on
-2026-09-06. See [Job tracking, removed](#job-tracking-removed).
-
----
-
-## The problem it solves
-
-**Nothing was in one place.** A mail sweeper labeled things, a food tracker
-logged meals into a spreadsheet, and a spending picture existed only as a pile of
-receipt emails. Each reported separately, by email, into the same inbox the
-sweeper was trying to clean. Reading the reports cost more attention than the
-systems saved.
-
-Now there is one page. It opens from a phone home screen and answers the only
-questions worth asking before coffee: what did I spend, what did I eat, and what
-needs me today.
-
-**Filing is only safe if something else surfaces what mattered.** Every labeled
-thread leaves the inbox, so the inbox is no longer a place a missed reply would
-catch the eye. That makes the morning report load-bearing rather than a
-convenience, and the report is written against that rule: a thread filed without
-being reported is a thread lost.
-
----
-
-## Architecture
-
-Three phases. Each is a separate scheduled job with its own failure domain.
-(There were two more that ingested and scored job postings. They were detached on
-2026-09-04 and removed on 2026-09-06 — see below.)
+Two things run on a schedule. Everything else is conversational.
 
 ```
-  7:15am  ┌────────────────────────────┐
-  ──────► │ 2   email sweep            │
-          │     label, draft, record   │  ──────────────┐
-          └────────────────────────────┘                │
-  7:45am  ┌────────────────────────────┐                ▼
-  ──────► │ 2b  calendar drain         │  ────────►  Postgres
-          │     intents → events       │            (Supabase)
-          └────────────────────────────┘                │
-  8:00am  ┌────────────────────────────┐                │
-  ──────► │ 3   build the tracker page │  ◄─────────────┘
-          └────────────────────────────┘
-                        │
-                        ▼
-              one page, on a phone, by 8:30
+12:30am PT   accountant-simplefin-sweep   Supabase edge function, pg_cron
+ 1:00am PT   Tracking Engine Sweep        one Claude routine, sweep/routine.md
 ```
 
-**Why the phases are split.** They chain only through the database — no phase
-calls another. Every phase writes an `engine_phase_runs` row on every exit path,
-including a crash. Phase 3 reads the newest row per phase, so a paused or broken
-phase renders as *"nothing changed, last ran 07:15"* rather than an error or a
-blank page. Any phase can be paused, rewritten, or left half-built without
-taking the morning report down with it — which matters, because phase 3 gets
-edited constantly. Removing phases 1a and 1b wholesale was a live test of that
-claim, and the other three needed no changes to keep running.
+That is the whole of it.
 
----
+## The rule the design rests on
 
-## What lives in the database
+> **Schedule only what arrives whether or not he asks.**
 
-**Every table is prefixed with what owns it.** This is a rule, not decoration:
-a skill is told *"you own every table named `doctor_*`"* rather than handed a
-list of names, so a table added later is picked up with no skill edit. An
-enumerated list in a skill description is the thing that goes stale.
+Transactions arrive from the bank. Mail arrives in the inbox. Neither waits for
+a request, so both need something watching.
 
-| Prefix | Owner | Meaning |
-|---|---|---|
-| `doctor_` | the doctor skill | food, nutrition reference, health entries |
-| `accountant_` | the accountant skill | money, accounts, wedding vendors |
-| `engine_` | no skill — the pipeline | phases 2, 2b and 3 read and write these; a skill should leave them alone |
+Food, health entries, merchant categorization, tutoring — those only ever happen
+because Adrien starts them, in a chat, with the skill that owns that data. They
+need no schedule, no sweep and no routine. Adding one only creates a second
+writer for a table that already has an owner.
 
-Ownership means *whose data this is*, not who writes it.
-`accountant_transactions` is written by the SimpleFIN sweep and read by the
-accountant and by phase 3. `doctor_food_log` is written by the doctor skill and
-read by phase 3 to draw the nutrition card.
-
-Underscores rather than spaces or hyphens, because `"doctor - food_log"` is not
-a valid bare identifier and would need double quotes in every statement forever.
-The phases write SQL by hand each morning, and one forgotten quote is a failed
-unattended run.
-
-Mail, money, and the heartbeat:
-
-| Table | What it holds |
-|---|---|
-| `engine_email_actions` | What the sweep did, per thread — the sweep is auditable |
-| `engine_blocklist` | Repeat junk senders, and the dates that earned them the label |
-| `engine_calendar_intents` | Events phase 2 wants; phase 2b creates them |
-| `accountant_transactions` | Dates, signed amounts, merchants, accounts. Never a card number |
-| `accountant_accounts` | Bank, account name, type, last4. No full numbers |
-| `accountant_merchant_aliases` | Raw bank descriptor fragment to a clean merchant name |
-| `accountant_merchant_categories` | Clean merchant name to one of nine categories |
-| `engine_phase_runs` | The heartbeat every phase writes and phase 3 reads |
-
-Read and written by skills rather than by a phase:
-
-| Table | What it holds |
-|---|---|
-| `doctor_food_log` | One row per meal eaten, already summed if it was a combo |
-| `doctor_nutrition_items` | Reference macros, one row per ingredient |
-| `doctor_health_log` | Symptoms, vitals, medications and events |
-
-These three carry no pipeline dependency — no phase reads them. They exist so the
-report has something to render and so a conversational skill has somewhere
-durable to write. `doctor_food_log` and `doctor_nutrition_items` came over when the separate
-Food-Tracker project was folded into this one; the doctor skill takes ownership
-of all three, replacing the earlier food-tracker skill, and an accountant skill
-takes `accountant_transactions`.
-
-## Where transactions come from
-
-**SimpleFIN, and nothing else** (changed 2026-09-05). The
-`accountant-simplefin-sweep` edge function pulls all eight active accounts
-directly from the banks on a `pg_cron` schedule (7:30am PT, thirty minutes ahead
-of the report that reads it) and writes through the
-`accountant_ingest` function, which dedupes on `external_id` and applies the
-merchant maps as it goes.
-
-Phase 2 used to write a row per Money In / Money Out email. That feed is gone:
-two feeds for one charge produce duplicates that nothing reconciles, and
-`source = 'email'` is no longer a legal value. The Money In and Money Out labels
-survive as filing labels with no database write behind them.
-
-**No routine touches the accountant tables.** The edge function loads them, the
-`accountant` skill curates them when Adrien asks — including draining
-`accountant_uncategorized` by naming a merchant and writing the two map rows so
-every future charge from it categorizes itself — and phase 3 reads the views to
-draw the morning report. Anything older than SimpleFIN's reach comes in by CSV
-through `accountant_ingest` — and that reach was **measured at about six months**
-on 2026-09-06, so 2025-03-13 → 2026-03-18 stays empty until bank CSVs are loaded.
-See `accountant/README.md`.
-
-## The page
-
-One artifact, republished in place at the same URL every morning so a phone
-home-screen icon keeps working. Four cards: money, card credits, nutrition, and
-whatever needs a human.
-
-**Phase 3 fills three holes and derives nothing.** `#meta` carries the date and
-the sync line, `#txns` carries every transaction, and the Requires Action list is
-one `<li>` per item. The month label, the category tabs, the three figures, the
-spend bars and the day-grouped ledger are all computed in the page from `#txns`.
-Nothing is hand-copied, so nothing can drift out of sync with the rows it claims
-to summarize — the failure mode of the previous version, which asked the routine
-to write both the rows and their totals.
-
-**The money card pages through history.** A navigator bar with an arrow at each
-end walks 30 months back to May 2023. Transfers are dropped everywhere — a card
-payment is money already counted when the charges it settles posted, so showing
-both double-counts the month. The transaction list is collapsed by default: the
-figures and the bars are the daily read, the individual rows are the follow-up.
-
-**A month that predates the data is labeled, not hidden.** `#meta.complete_from`
-names the first trustworthy month; anything earlier gets an "incomplete" note.
-SimpleFIN reaches back about six months and there is nothing at all between March
-2025 and March 2026, so without this the navigator would show a three-transaction
-March 2026 as though it were a whole month. A gap that announces itself is a gap;
-a gap that renders as a small number is a lie.
-
-**What the reader changes lives outside the HTML.** Card credits are ticked off
-as they are claimed, and Requires Action items are dismissed with an ×. Both are
-stored in the artifact's own document store rather than in the page, because the
-page is overwritten every morning — state written into the markup would not
-survive its own next publish. Credits carry the cycle they were ticked in
-(`2026-Q3`, `2026-09`), so a tick stops counting when its cycle rolls and the
-credit comes back on its own, with no job to reset it. Dismissals carry the run
-date for the same reason: a problem dismissed today reappears tomorrow if it is
-still true.
-
-## Design decisions worth defending
-
-**Nothing labeled gets auto-deleted.** An earlier version trashed flagged
-threads after a week. Deleting a person's unanswered mail on a timer is the kind
-of automation that is only correct until the one time it isn't.
-
-**One writer per destination.** No routine writes the wedding artifact at all
-any more (2026-09-05) — Adrien records wedding spending himself from his wedding
-project. Phase 3 mentions that a wedding charge landed and writes nothing. Two
-writers on one page is how a page ends up with a number neither of them meant.
-
-**One feed per fact.** The same rule pointed at data: a charge is recorded once,
-by whichever source sees it most reliably. That is the bank, not a receipt
-email.
-
-**Personal data never enters this repo.** It is public. Anything that maps a
-private life — merchant names, vendors, amounts — lives in the database rather
-than a config file. Gmail label IDs and calendar IDs are here; addresses, phone
-numbers, and merchant names are not. `config/identity.yaml` — a real address
-and phone number, used by the removed phase 1 — is gitignored, with an example file
-committed in its place.
-
-**A rename does not reach inside a function.** A plpgsql body is stored as text
-and resolved at call time, so `alter table ... rename` left `prune_old_data()`
-still pointing at `phase_runs` after every rename in `sql/005` had succeeded. It
-would have failed at the end of the next sweep, long after the migration looked
-like it worked. Recreating dependent functions is part of a rename, not a
-follow-up — and the same goes for views, triggers, and policies.
-
-**A view is a hole in RLS unless you say otherwise.** Every table has RLS on with
-no policies, which denies everything and is the intended state — only the service
-key reaches this data. But a Postgres view runs as its *owner* by default, and
-the owner here is `postgres`, which has `BYPASSRLS`. Two views were created
-without `security_invoker`, so anyone with the public anon key could read the
-queue — company, title, salary, apply link, and the private `verdict` and
-`concerns` scoring fields — straight through a door the base tables had shut.
-Fixed 2026-09-03. Those particular views are gone with job tracking, but the rule
-stands: `security_invoker = true` on every view in `sql/001_schema.sql`, and any
-view added later needs it too.
-
----
-
-## Status
-
-The three live phases have been running unattended since 2026-09-01.
-
-| Phase | State | Last verified run |
-|---|---|---|
-| Database schema and retention | Live | — |
-| 2 — email sweep | Live | 11 scanned, 6 labeled |
-| SimpleFIN sweep | Live | 8 accounts, 449 rows loaded 2026-09-06, daily `pg_cron` at 7:30am PT |
-| 2b — calendar drain | Live | no pending intents |
-| 3 — morning report | Live | published 2026-09-07, 2,076 transactions, nothing needing a human |
-| 1a — ingest, 7 sources | **Removed** 2026-09-06 | detached 2026-09-04 |
-| 1b — score and prepare | **Removed** 2026-09-06 | routine still disabled |
-
----
-
-## Running it
-
-Every phase is a prompt on a scheduler — there is nothing to install and nothing
-to start. The one piece of deployed code is the SimpleFIN edge function, which
-Supabase runs; see `accountant/README.md`.
-
-There is no Python left in this repo. The ingest package, its tests, the CI
-workflow and `pyproject.toml` went with phase 1 on 2026-09-06.
+This is the rule to apply when the system next wants to grow.
 
 ## Layout
 
-One folder per phase, so a phase can be debugged, upgraded, or rewritten without
-reading the others. Each has a README explaining what it does and what must not
-be undone.
-
 ```
-phase2/   email    — inbox sweep + calendar drain
-phase3/   present  — the morning report
-accountant/        — the SimpleFIN edge function
-sql/      shared   — schema, history, job removal, and the naming convention
-skills/   shared   — conversational skills over the non-pipeline tables
+sweep/         the one Claude routine, and why there is only one
+page/          the morning report, and its backup copy
+accountant/    the SimpleFIN edge function
+sql/           schema and migrations (sql/archive/ is history, not live)
+skills/        a skill definition kept in-repo
 ```
 
-Phases 2, 2b and 3 are prompts rather than Python: they run as scheduled cloud
-sessions with the Gmail, Drive, and Calendar connectors.
+## Where the data comes from
 
-**The routines fetch these prompts from this repo at run time.** Each scheduled
-routine is about ten lines — fetch the raw GitHub URL for its prompt file, follow
-everything after the first `---`, and on a second failed fetch write a failed
-`engine_phase_runs` row and stop rather than improvise. So **editing a prompt file here
-changes live behavior on the next run**, with no scheduler edit. Do not paste a
-prompt body into the scheduler: that creates a second copy, and the two drift
-without anything saying so.
-
-| Phase | Prompt |
+| Table group | Written by |
 |---|---|
-| 2 | `phase2/routine_2_email.md` |
-| 2b | `phase2/routine_2b_calendar.md` |
-| 3 | `phase3/routine_3_artifact.md` + `phase3/template.html` |
+| `accountant_*` | the SimpleFIN edge function; the `accountant` skill on demand; the page, when a charge is renamed |
+| `doctor_*` | the `doctor` skill, when Adrien logs something in a chat |
+| `engine_*` | the sweep |
 
-**Every cron in this system is fixed UTC** — all three routines. They need a
-manual one-hour bump when Pacific goes back to standard time in November.
-Written down rather than pretended away.
+One owner per table, with one knowing exception: the merchant maps are written
+by both the `accountant` skill and the page. They write the same two tables the
+same way and an upsert is idempotent, so a collision costs nothing.
 
----
+## The page
 
-## Job tracking, removed
+**https://claude.ai/code/artifact/fb3d377a-c279-4b59-b182-2b90616d084d** —
+private, read on a phone from the home screen.
 
-Until 2026-09-04 this was also a job-application pipeline: seven ATS APIs polled
-nightly, ~10,000 postings normalized and deduped, hard filters that recorded
-*which rule* killed each rejection, an LLM scoring pass on two axes, generated
-cover letters, and five roles surfaced on the morning report with apply links.
-It ran unattended for four days.
+It queries Supabase itself, through Adrien's own connector, every time it is
+opened. Nothing renders it and nothing republishes it on a schedule.
 
-It is switched off. The seven tables — `jobs`, `job_filters`, `job_scores`,
-`companies`, `applications`, `email_events`, `recruiter_submissions` — and their
-three views were exported to CSV and dropped (`sql/004_drop_job_tracking.sql`).
-The database went 61 MB → 11 MB.
+That is a recent and load-bearing change. Until 2026-09-08 a routine rebuilt the
+whole page every morning: read a 68 KB template and ~2,000 transactions into a
+model, write the entire page back out. It cost tens of thousands of output
+tokens a day, it was only ever as fresh as the last run, and every design change
+made on the page had to be backported into this repo or the next morning would
+flatten it.
 
-**The code was kept detached for two days, then removed** on 2026-09-06 when
-Adrien confirmed he was scrapping the job search rather than pausing it. `phase1/`,
-`config/`, the CI workflow and `pyproject.toml` are gone from the working tree;
-`git show 85f2d5a:phase1/` still has all of it, and the dropped tables were
-exported to CSV first. Reviving it means restoring those paths, re-adding the
-`schedule:` trigger, and re-creating seven tables. The `Jobs` email label
-survives as an ordinary label.
+Now the page is permanent and the data is live. Details and the rules that keep
+it that way: `page/README.md`.
 
-What is worth keeping from it is the storage lesson, which took two rounds to
-learn.
+## Skills
 
-### The 228 MB column
+Adrien talks to these; they are not scheduled. They are managed on claude.ai
+rather than in this repo, so they cannot be edited from a clone.
 
-Postings were stored with their untouched API payload in a `jsonb` column, on
-the theory that keeping source data is always cheaper than re-fetching it. After
-one night of real ingest the database was **252 MB of a 500 MB free tier** — and
-228 MB of that was the TOAST side-table behind that one column, against 5.9 MB
-of actual rows.
+| Skill | Owns |
+|---|---|
+| `secretary` | email and calendar — including the judgment the 1am sweep uses |
+| `accountant` | transactions, merchant names and categories |
+| `doctor` | food, nutrition and health entries |
+| `tutor` | data-engineering practice. No data on the page |
 
-Only 59 MB of it was even live. The rest was bloat: the nightly run UPDATEs all
-~10,600 rows, and autovacuum cannot reclaim TOAST pages that fast.
+The sweep does not restate the secretary's rules; it calls the skill. One
+definition of how mail is handled, whether it runs at 1am or he asks at 2pm.
 
-The column is gone. Descriptions are stored as text, capped at 4,000 characters,
-which is all the scorer ever reads. Re-fetching beats hoarding when the source
-re-fetches nightly anyway.
+`skills/food-tracker/` predates the `doctor` skill and covers the same two
+tables. It is kept for now because it may be the working copy behind the cloud
+skill, but it is a second definition of one job and should be reconciled.
 
-### The same problem, smaller, in the column that replaced it
+## Running it
 
-Dropping `raw` fixed the size but not the mechanism. Measured 2026-09-03, with a
-full night loaded: the database was back to **78 MB, of which 54 MB was TOAST
-behind the `description` column** — against 25 MB of live description text. The
-nightly run UPDATEs every one of ~10,600 rows, and autovacuum does not reclaim
-TOAST pages at that rate. Roughly 29 MB was dead.
+There is nothing to install and nothing to start.
 
-Two things follow, and the second is the one that surprised me:
+The routine is a prompt on a scheduler, about ten lines: fetch the raw GitHub
+URL for `sweep/routine.md`, follow everything after the first `---`, and on a
+second failed fetch write a failed `engine_phase_runs` row and stop rather than
+improvise. **Editing that file and pushing changes live behavior on the next
+run.** Never paste a prompt body into the scheduler — that creates a second copy
+and the two drift with nothing to say so.
 
-- `vacuum (full, analyze) jobs` rewrites the table and hands the pages back:
-  **78 MB → 48 MB**. That is the lever when size climbs, not retention.
-- **Retention was never going to catch this.** Both age tests in
-  `prune_old_data()` key on `last_seen_at`, which the ingest refreshes for every
-  posting still listed. A job that stays open never ages out. On the day this was
-  measured the function had *zero* rows to act on. It reclaims postings that fall
-  off their board; it does not bound steady-state size, and reading the size
-  graph as if it did would send you looking in the wrong place.
+The one piece of deployed code is the SimpleFIN edge function, which Supabase
+runs. See `accountant/README.md`.
 
----
+Both schedules are fixed UTC and need a manual one-hour bump when Pacific goes
+back to standard time in November. They shift together, so the sweep stays
+behind the transaction load.
+
+## History
+
+This began as a job-application pipeline (`apply-engine`, still on GitHub): seven
+ATS APIs polled nightly, ~10,000 postings normalized, scored and filtered, with
+cover letters drafted for the survivors. That was removed on 2026-09-04 when the
+job search was scrapped, and the tables went with it. Job *mail* is still
+labeled and legitimacy-checked, which is all that remains of it.
+
+It was then a three-phase pipeline — ingest, sweep, present — which is where the
+"phase" vocabulary in `engine_phase_runs` comes from. Phase 1 was removed on
+2026-09-06; phases 2, 2b and 3 became the single sweep on 2026-09-08.
+
+`phase2/` and `phase3/` now hold nothing but retirement notices, so that a
+scheduler entry still pointing at an old prompt exits cleanly instead of doing
+something. Delete both folders once those entries are gone.
+
+`sql/archive/` holds migrations that no longer describe anything live:
+`002` migrated the apply-engine job tables, and `003` is a retention function
+that reads three tables which no longer exist. Kept as history; do not run them.
 
 ## License
 
-MIT.
+MIT. See `LICENSE`.

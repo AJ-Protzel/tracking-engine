@@ -1,8 +1,9 @@
 # Accountant — the transaction feed
 
 Everything in `accountant_*` is loaded by one Supabase edge function. No Claude
-routine writes any of it. Phase 3 reads the views to draw the morning report and
-that is the only other thing that touches these tables.
+routine writes any of it. The morning page reads these tables directly, through
+Adrien's own Supabase connector, and that is the only other thing that touches
+them.
 
 Owners, so this stays true:
 
@@ -10,21 +11,22 @@ Owners, so this stays true:
 |---|---|
 | Load transactions | `accountant-simplefin-sweep` edge function, on a `pg_cron` schedule |
 | Name and categorize merchants | the `accountant` account skill, on demand |
-| Name and categorize from the page | phase 3, draining `txn_edits` at 8:00am |
-| Read for the morning report | phase 3 |
+| Name and categorize from the page | the page itself, writing on save |
+| Read for the morning report | the page itself, on every open |
 | Anything else | nobody — do not add a routine for it |
 
-Phase 3 gained a write on 2026-09-08, and it is the one exception to "read-only"
-in this system. Tapping a transaction on the morning page renames or
-recategorizes it; the edit is parked in the artifact's own store and the next
-8:00am run folds it into `accountant_merchant_aliases` and
-`accountant_merchant_categories`, then marks it applied.
+Tapping a transaction on the morning page renames or recategorizes it, and the
+page writes that to `accountant_merchant_aliases`, `accountant_merchant_categories`
+and the transaction itself, directly. It keeps a copy in the artifact's own store
+as its retry queue and retries anything unapplied on the next load. Until
+2026-09-08 that edit sat in the store until an 8:00am routine drained it; there
+is no routine now, and no wait.
 
-So the merchant maps now have TWO writers — the skill and phase 3 — which is the
-one place this system knowingly breaks its own one-owner rule. They write the
-same two tables the same way, and an alias is idempotent, so a collision costs
-nothing worse than a redundant upsert. Anything beyond those two tables is still
-nobody's: phase 3 must never UPDATE or DELETE a transaction.
+So the merchant maps have TWO writers — the skill and the page — which is the one
+place this system knowingly breaks its own one-owner rule. They write the same
+two tables the same way, and an alias is idempotent, so a collision costs nothing
+worse than a redundant upsert. Anything beyond those two tables is still
+nobody's: the page must never DELETE a transaction or insert one.
 
 ## The function
 
@@ -73,9 +75,14 @@ Every mode writes an `accountant_phase_runs` row. Dedupe is on `external_id`
 
 ## Schedule
 
-`pg_cron` job `accountant-simplefin-sweep`, `37 20 * * *` UTC — 1:37pm Pacific in
-summer, 12:37pm in winter. An odd minute on purpose. It calls the function
-through `pg_net`.
+`pg_cron` job `accountant-simplefin-sweep`, `30 7 * * *` UTC — 12:30am Pacific in
+summer, 11:30pm in winter. It calls the function through `pg_net`.
+
+Thirty minutes ahead of the 1:00am Tracking Engine Sweep, so the night's
+transactions are loaded before anything else runs. Both are fixed UTC and shift
+together in November, so the ordering holds. It was `37 20 * * *` (1:37pm PT)
+until 2026-09-08, which was fine while the page was rendered each morning and
+wrong once the sweep moved to 1am.
 
 SimpleFIN's Bridge pulls each bank roughly once every 24 hours at an hour that
 varies by bank and by day, and there is no push and no on-demand refresh, so the
