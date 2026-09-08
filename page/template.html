@@ -1917,9 +1917,12 @@ var TEACT = (function(){
        This is the `synced` line: the real SimpleFIN load, not the page's own
        read, which would always look current and so would say nothing. */
     ask(
-      "select to_char(max(ran_at) at time zone 'America/Los_Angeles','Mon DD') " +
-      "as swept_d, to_char(max(ran_at) at time zone 'America/Los_Angeles'," +
-      "'HH12:MI AM') as swept_t from accountant_phase_runs where mode = 'sweep'",
+      /* FM drops to_char's zero padding, so this reads "Sep 8 at 7:30 AM"
+         rather than "Sep 08 at 07:30 AM". */
+      "select to_char(max(ran_at) at time zone 'America/Los_Angeles'," +
+      "'Mon FMDD') as swept_d, to_char(max(ran_at) at time zone " +
+      "'America/Los_Angeles','FMHH12:MI AM') as swept_t " +
+      "from accountant_phase_runs where mode = 'sweep'",
       'swept_d',
       function(rows){
         var r = rows[0];
