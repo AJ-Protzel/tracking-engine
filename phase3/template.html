@@ -172,6 +172,70 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
 .caveat{margin:16px 0 0;color:var(--ink-3);font-size:13px;line-height:1.45}
 .caveat+.caveat{margin-top:6px}
 
+/* ===== over time: the whole history as one line ===== */
+/* Every month there is data for, oldest at the left. The three readings are
+   the same array read three ways, so nothing here needs its own data. */
+.trend-tabs{padding:0 0 12px}
+.trend-read{display:flex;justify-content:space-between;gap:12px;
+  align-items:baseline;margin:0 0 9px}
+.trend-when{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.trend-val{font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:clamp(15px,4.6vw,20px);font-weight:700;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.trend-val.neg{color:var(--out)}
+.chart svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.chart .ar{fill:var(--sunk)}
+.chart .ln{fill:none;stroke:var(--ink);stroke-width:2;
+  vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.chart .pt{fill:var(--card);stroke:var(--ink);stroke-width:2;
+  vector-effect:non-scaling-stroke}
+.chart .gd{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.chart .zero{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;
+  stroke-dasharray:3 4}
+.chart.spend .ar{fill:var(--out-soft)}
+.chart.spend .ln,.chart.spend .pt{stroke:var(--out)}
+.trend-x{display:flex;justify-content:space-between;gap:10px;margin-top:7px;
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;
+  letter-spacing:.06em;color:var(--ink-3)}
+
+/* ===== renaming and categorizing a row, from the page ===== */
+/* A tapped row opens under itself. The edit is stored against the merchant,
+   not the charge, so tomorrow's charge from the same place lands named. */
+.txn-row{display:flex;flex-direction:column}
+.txn{width:100%;font:inherit;text-align:left;background:none;border:none;
+  padding:0;color:inherit}
+.ledger.editable .txn{cursor:pointer}
+.ledger.editable .txn:hover .txn-name{color:var(--accent)}
+.txn.open .txn-name{color:var(--accent)}
+.pend{color:var(--accent);font-weight:700}
+.ed-hint{margin:0 0 14px;color:var(--ink-3);font-size:12px}
+.txn-edit{margin:11px 0 3px;padding:13px;border:1px solid var(--line);
+  border-radius:10px;background:var(--sunk)}
+.ed-lab{display:block;font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-3);margin:0 0 6px}
+.ed-block{margin-top:12px}
+.ed-name{width:100%;font:inherit;font-size:14px;font-weight:600;
+  color:var(--ink);background:var(--card);border:1px solid var(--line);
+  border-radius:8px;padding:9px 10px}
+.ed-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ed-chip{font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+  padding:5px 11px;border-radius:999px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink-2)}
+.ed-chip:hover{border-color:var(--ink-3)}
+.ed-chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);
+  color:var(--on-ink)}
+.ed-acts{display:flex;align-items:center;gap:8px;margin-top:14px}
+.ed-btn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  padding:8px 15px;border-radius:9px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink-2)}
+.ed-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.ed-btn.go{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.ed-btn.undo{margin-left:auto;color:var(--out);border-color:var(--line)}
+.ed-btn.undo:hover{border-color:var(--out);color:var(--out)}
+.ed-note{margin:11px 0 0;color:var(--ink-3);font-size:12px;line-height:1.45}
+
 /* ===== card credits ===== */
 /* Struck through rather than removed: these refresh on their own cycle,
    so a used credit is a state, not a deletion. */
@@ -261,9 +325,9 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
        2. #txns       - EVERY transaction, all months (the navigator pages back)
        3. ul#todoList - one <li data-id="slug-YYYY-MM-DD"> per item
 
-     Do NOT hand-write totals, tab rows, bar widths, day groups or counts.
-     They are computed from #txns at load, so they cannot drift out of sync.
-     Leave the Card Credits section alone; it is not daily data.
+     Do NOT hand-write totals, tab rows, bar widths, day groups, counts or the
+     Over Time line. They are computed from #txns at load, so they cannot drift
+     out of sync. Leave the Card Credits section alone; it is not daily data.
      ========================================================================== -->
 
 <script type="application/json" id="meta">
@@ -271,7 +335,9 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
 </script>
 
 <!-- EVERY MONTH, not just this one - the navigator scrolls back through them.
-     `amt` is signed exactly as
+     `id` is the accountant_transactions primary key, and it is REQUIRED: an
+     edit made on the page is stored against it, and without it a rename can
+     only be matched back to a row by name. `amt` is signed exactly as
      accountant_transactions stores it: negative out, positive in. `cat` null
      renders as "uncategorized". Rows with cat "transfer" are DROPPED by the
      page - he does not want them shown, and a card payment is money already
@@ -279,11 +345,11 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
      rendered result is identical. -->
 <script type="application/json" id="txns">
 [
-  {"date":"2026-09-04","desc":"Interest Payment","cat":"income","amt":216.00},
-  {"date":"2026-09-04","desc":"Starbucks Store Fremont Ca","cat":"dining","amt":-7.45},
-  {"date":"2026-09-03","desc":"Costco Gas","cat":"gas","amt":-40.00},
-  {"date":"2026-09-02","desc":"Costco","cat":"grocery","amt":-57.89},
-  {"date":"2026-09-01","desc":"Visible","cat":"utility","amt":-25.00}
+  {"id":1841,"date":"2026-09-04","desc":"Interest Payment","cat":"income","amt":216.00},
+  {"id":1840,"date":"2026-09-04","desc":"Starbucks Store Fremont Ca","cat":"dining","amt":-7.45},
+  {"id":1838,"date":"2026-09-03","desc":"Costco Gas","cat":"gas","amt":-40.00},
+  {"id":1835,"date":"2026-09-02","desc":"Costco","cat":"grocery","amt":-57.89},
+  {"id":1831,"date":"2026-09-01","desc":"Visible","cat":"utility","amt":-25.00}
 ]
 </script>
 
@@ -334,6 +400,33 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
 
       <p class="caveat" id="gapNote" hidden></p>
       <p class="caveat" id="syncedLine">Synced</p>
+    </div>
+  </section>
+
+  <!-- ============ OVER TIME ============ -->
+  <!-- Derives from #txns like the money card. Nothing to fill in here. -->
+  <section class="card plain trend-card" id="trendCard">
+    <div class="card-head">
+      <h2>Over Time</h2>
+      <span class="count" id="trendTotal">$0.00</span>
+    </div>
+    <div class="card-body">
+      <div class="tabs trend-tabs" id="trendTabs" role="group"
+           aria-label="Choose what the line shows">
+        <button class="tab" type="button" data-mode="net"
+                aria-pressed="true">Total money</button>
+        <button class="tab" type="button" data-mode="spend"
+                aria-pressed="false">Spent per month</button>
+        <button class="tab" type="button" data-mode="cum"
+                aria-pressed="false">Spent, running</button>
+      </div>
+      <p class="trend-read">
+        <span class="trend-when" id="trendWhen">&nbsp;</span>
+        <span class="trend-val" id="trendVal">$0.00</span>
+      </p>
+      <div class="chart" id="trendChart"></div>
+      <div class="trend-x"><span id="trendFirst"></span><span id="trendLast"></span></div>
+      <p class="caveat" id="trendNote"></p>
     </div>
   </section>
 
@@ -495,11 +588,103 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   window.__completeFrom = meta.complete_from || '';
 })();
 
+/* ---- the transaction array, and the edits laid over it ----
+   #txns is the only transaction data on the page. TE parses it once, applies
+   whatever renames and recategorizations he has made from the page, and hands
+   the result to everything that draws money: the money card and the Over Time
+   card. Transfers are dropped outright: he does not want the rows, and a card
+   payment is money already counted when the charges it settles posted. */
+var TE = (function(){
+  var base = [], edits = {}, subs = [];
+
+  var raw;
+  try { raw = JSON.parse(document.getElementById('txns').textContent) || []; }
+  catch(e){ raw = []; }
+
+  base = raw.map(function(r){
+    return {
+      id:   (r.id === undefined || r.id === null) ? '' : String(r.id),
+      date: String(r.date || ''),
+      desc: String(r.desc || ''),
+      cat:  r.cat || 'uncategorized',
+      amt:  Number(r.amt) || 0
+    };
+  }).filter(function(r){ return r.date.length >= 7; });
+
+  function slug(s){
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+  /* A charge is keyed by its database id. The composite is only a fallback for
+     a run that forgot to send ids — it still identifies the row on the page. */
+  function keyOf(r){
+    return r.id ? ('t:' + r.id)
+      : ('t:' + r.date + '|' + r.amt.toFixed(2) + '|' + slug(r.desc));
+  }
+  function nameKey(desc){ return 'm:' + slug(desc); }
+
+  function editFor(r){
+    return edits[keyOf(r)] || edits[nameKey(r.from || r.desc)] || null;
+  }
+
+  /* How many charges carry this name, so the editor can say what "all of
+     them" means before he picks it. */
+  function countByName(desc){
+    var k = slug(desc), n = 0;
+    for(var i = 0; i < base.length; i++){
+      if(slug(base[i].desc) === k){ n++; }
+    }
+    return n;
+  }
+
+  /* The rows everything else reads: edits applied, transfers gone. An edit
+     whose values the database already carries is landed, not pending — that
+     is how the badge clears itself the morning after a sync. */
+  function rows(){
+    var out = [], i, r, e, row;
+    for(i = 0; i < base.length; i++){
+      r = base[i];
+      e = edits[keyOf(r)] || edits[nameKey(r.desc)] || null;
+      row = { id:r.id, date:r.date, desc:r.desc, cat:r.cat, amt:r.amt,
+              from:r.desc, fromCat:r.cat, pending:false };
+      if(e){
+        var wantCat = e.cat || 'uncategorized';
+        var landed = (!e.name || e.name === r.desc) && wantCat === r.cat;
+        if(e.name){ row.desc = e.name; }
+        row.cat = wantCat;
+        row.pending = !landed;
+      }
+      if(row.cat === 'transfer'){ continue; }
+      out.push(row);
+    }
+    return out;
+  }
+
+  function notify(){
+    for(var i = 0; i < subs.length; i++){ subs[i](); }
+  }
+
+  return {
+    CATS: ['dining','grocery','shopping','utility','gas','travel','transfer',
+           'income','fee'],
+    rows: rows,
+    slug: slug,
+    keyOf: keyOf,
+    nameKey: nameKey,
+    editFor: editFor,
+    countByName: countByName,
+    /* whole set, from a db snapshot; applied edits are already in the data */
+    setEdits: function(map){ edits = map || {}; notify(); },
+    putEdit: function(id, doc){ edits[id] = doc; notify(); },
+    dropEdit: function(id){ delete edits[id]; notify(); },
+    hasEdit: function(id){ return !!edits[id]; },
+    subscribe: function(fn){ subs.push(fn); }
+  };
+})();
+
 /* ---- money: one array in, everything else derived ----
-   #txns carries MANY months. The navigator picks one; the figures, tabs, bars
-   and ledger are all rebuilt for whichever is showing. Transfers are dropped
-   outright: he does not want the rows, and a card payment is money already
-   counted when the charges it settles posted. */
+   The navigator picks a month; the figures, tabs, bars and ledger are all
+   rebuilt for whichever is showing. */
 (function(){
   var CANON = ['dining','grocery','shopping','utility','gas','travel',
                'income','fee'];
@@ -524,24 +709,22 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
   var mLabel = document.getElementById('monthLabel');
   var active = 'all';
 
-  var raw;
-  try { raw = JSON.parse(document.getElementById('txns').textContent) || []; }
-  catch(e){ raw = []; }
-
-  var rows = raw.map(function(r){
-    return { date: String(r.date || ''), desc: String(r.desc || ''),
-             amt: Number(r.amt) || 0, cat: r.cat || 'uncategorized' };
-  }).filter(function(r){ return r.cat !== 'transfer' && r.date.length >= 7; });
+  var byMonth = {}, months = [], mi = 0;
+  var store = null;          /* the db collection, once it resolves */
+  var openKey = '';          /* the row whose editor is open, across rebuilds */
 
   /* Bucket by calendar month, newest first. mi indexes `months`. */
-  var byMonth = {}, months = [];
-  rows.forEach(function(r){
-    var k = r.date.slice(0, 7);
-    if(!byMonth[k]){ byMonth[k] = []; months.push(k); }
-    byMonth[k].push(r);
-  });
-  months.sort().reverse();
-  var mi = 0;
+  function load(){
+    var list = TE.rows();
+    byMonth = {}; months = [];
+    list.forEach(function(r){
+      var k = r.date.slice(0, 7);
+      if(!byMonth[k]){ byMonth[k] = []; months.push(k); }
+      byMonth[k].push(r);
+    });
+    months.sort().reverse();
+    if(mi > months.length - 1){ mi = Math.max(0, months.length - 1); }
+  }
 
   /* "2026-09-04" as a LOCAL date; new Date(str) parses it as UTC and shifts
      the day backwards for anyone west of Greenwich. */
@@ -614,9 +797,162 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
     return present;
   }
 
+  /* --- the editor: rename a charge, or every charge from that merchant --- */
+  /* Written to the artifact's own db store, which survives the morning
+     republish. The 8:00am run drains it into the database before it reads,
+     so an edit made today is in the data tomorrow. */
+  function buildEditor(r, host, btn){
+    var mkey = TE.nameKey(r.from);
+    var tkey = TE.keyOf(r);
+    var same = TE.countByName(r.from);
+    var prev = TE.editFor(r);
+    var name = prev && prev.name ? prev.name : r.desc;
+    var cat = r.cat;
+    var scope = (prev && prev.scope) ? prev.scope : (same > 1 ? 'merchant' : 'txn');
+
+    var box = document.createElement('div');
+    box.className = 'txn-edit';
+
+    var l1 = document.createElement('label');
+    l1.className = 'ed-lab'; l1.textContent = 'Name';
+    var input = document.createElement('input');
+    input.className = 'ed-name'; input.type = 'text'; input.value = name;
+    input.setAttribute('aria-label', 'Transaction name');
+    box.appendChild(l1); box.appendChild(input);
+
+    var b2 = document.createElement('div');
+    b2.className = 'ed-block';
+    var l2 = document.createElement('label');
+    l2.className = 'ed-lab'; l2.textContent = 'Category';
+    var chips = document.createElement('div');
+    chips.className = 'ed-chips';
+    b2.appendChild(l2); b2.appendChild(chips);
+    box.appendChild(b2);
+
+    var catBtns = [];
+    TE.CATS.concat(['uncategorized']).forEach(function(c){
+      var b = document.createElement('button');
+      b.className = 'ed-chip'; b.type = 'button';
+      b.textContent = c;
+      b.setAttribute('data-cat', c);
+      b.setAttribute('aria-pressed', String(c === cat));
+      b.addEventListener('click', function(){
+        cat = c;
+        catBtns.forEach(function(x){
+          x.setAttribute('aria-pressed',
+            String(x.getAttribute('data-cat') === cat));
+        });
+      });
+      catBtns.push(b);
+      chips.appendChild(b);
+    });
+
+    var b3 = document.createElement('div');
+    b3.className = 'ed-block';
+    var l3 = document.createElement('label');
+    l3.className = 'ed-lab'; l3.textContent = 'Applies to';
+    var scopes = document.createElement('div');
+    scopes.className = 'ed-chips';
+    b3.appendChild(l3); b3.appendChild(scopes);
+    box.appendChild(b3);
+
+    var scopeBtns = [];
+    [{k:'txn', l:'This charge'},
+     {k:'merchant', l:'All ' + same + ' from “' + r.from + '”'}]
+      .forEach(function(s){
+        var b = document.createElement('button');
+        b.className = 'ed-chip'; b.type = 'button';
+        b.textContent = s.l;
+        b.setAttribute('data-scope', s.k);
+        b.setAttribute('aria-pressed', String(s.k === scope));
+        b.addEventListener('click', function(){
+          scope = s.k;
+          scopeBtns.forEach(function(x){
+            x.setAttribute('aria-pressed',
+              String(x.getAttribute('data-scope') === scope));
+          });
+        });
+        scopeBtns.push(b);
+        scopes.appendChild(b);
+      });
+
+    var acts = document.createElement('div');
+    acts.className = 'ed-acts';
+    var save = document.createElement('button');
+    save.className = 'ed-btn go'; save.type = 'button'; save.textContent = 'Save';
+    var cancel = document.createElement('button');
+    cancel.className = 'ed-btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+    acts.appendChild(save); acts.appendChild(cancel);
+    if(prev){
+      var undo = document.createElement('button');
+      undo.className = 'ed-btn undo'; undo.type = 'button';
+      undo.textContent = 'Undo edit';
+      undo.addEventListener('click', function(){
+        var id = prev.__id;
+        TE.dropEdit(id);
+        openKey = '';
+        store.doc(id)['delete']()['catch'](function(){
+          TE.putEdit(id, prev);
+        });
+      });
+      acts.appendChild(undo);
+    }
+    box.appendChild(acts);
+
+    var note = document.createElement('p');
+    note.className = 'ed-note';
+    note.textContent = 'Saved here now; written to the database by the 8:00am '
+      + 'run. Naming a merchant also names its future charges.';
+    box.appendChild(note);
+
+    function shut(){
+      openKey = '';
+      box.remove();
+      btn.classList.remove('open');
+    }
+    cancel.addEventListener('click', shut);
+
+    save.addEventListener('click', function(){
+      var clean = input.value.trim() || r.desc;
+      var id = scope === 'merchant' ? mkey : tkey;
+      var doc = {
+        scope: scope,
+        name: clean,
+        cat: cat === 'uncategorized' ? null : cat,
+        match: r.from,
+        from_cat: r.fromCat === 'uncategorized' ? null : r.fromCat,
+        txn_id: r.id || '',
+        date: r.date,
+        amt: r.amt,
+        applied: false,
+        at: new Date().toISOString()
+      };
+      /* switching scope leaves the other doc behind, so clear it */
+      var other = scope === 'merchant' ? tkey : mkey;
+      if(prev && prev.__id === other){
+        TE.dropEdit(other);
+        store.doc(other)['delete']()['catch'](function(){});
+      }
+      openKey = '';
+      doc.__id = id;
+      TE.putEdit(id, doc);
+      var wire = {};
+      for(var k in doc){ if(k !== '__id' && doc.hasOwnProperty(k)){ wire[k] = doc[k]; } }
+      store.doc(id).set(wire)['catch'](function(){
+        TE.dropEdit(id);
+      });
+    });
+
+    host.appendChild(box);
+    btn.classList.add('open');
+    input.focus();
+    return box;
+  }
+
   /* --- the ledger, grouped by day, newest first --- */
   function buildLedger(list){
     ledger.textContent = '';
+    ledger.classList.toggle('editable', !!store);
     if(!list.length){
       var p0 = document.createElement('p');
       p0.className = 'caveat';
@@ -624,6 +960,12 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
       p0.textContent = 'Nothing in this category this month.';
       ledger.appendChild(p0);
       return;
+    }
+    if(store){
+      var hint = document.createElement('p');
+      hint.className = 'ed-hint';
+      hint.textContent = 'Tap a transaction to rename it or set its category.';
+      ledger.appendChild(hint);
     }
     var days = [], byDay = {};
     list.slice().sort(function(a, b){
@@ -647,20 +989,50 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
       var box = document.createElement('div');
       box.className = 'txns';
       byDay[d].forEach(function(r){
-        var row = document.createElement('div');
+        var host = document.createElement('div');
+        host.className = 'txn-row';
+        var row = document.createElement(store ? 'button' : 'div');
         row.className = 'txn';
+        if(store){ row.type = 'button'; }
         var main = document.createElement('div');
         main.className = 'txn-main';
         var nm = document.createElement('div');
         nm.className = 'txn-name'; nm.textContent = r.desc;
         var mt = document.createElement('div');
         mt.className = 'txn-meta'; mt.textContent = r.cat;
+        if(r.pending){
+          mt.appendChild(document.createTextNode(' · '));
+          var pd = document.createElement('span');
+          pd.className = 'pend'; pd.textContent = 'edited';
+          mt.appendChild(pd);
+        }
         main.appendChild(nm); main.appendChild(mt);
         var amt = document.createElement('div');
         amt.className = 'txn-amt' + (r.amt > 0 ? ' pos' : '');
         amt.textContent = (r.amt > 0 ? '+' : '') + money(r.amt);
         row.appendChild(main); row.appendChild(amt);
-        box.appendChild(row);
+        host.appendChild(row);
+        box.appendChild(host);
+
+        if(store){
+          var key = TE.keyOf(r);
+          row.addEventListener('click', function(){
+            if(openKey === key){
+              openKey = '';
+              var open = host.querySelector('.txn-edit');
+              if(open){ open.remove(); }
+              row.classList.remove('open');
+              return;
+            }
+            var live = ledger.querySelector('.txn-edit');
+            if(live){ live.remove(); }
+            var lit = ledger.querySelector('.txn.open');
+            if(lit){ lit.classList.remove('open'); }
+            openKey = key;
+            buildEditor(r, host, row);
+          });
+          if(openKey === key){ buildEditor(r, host, row); }
+        }
       });
       wrap.appendChild(box);
       ledger.appendChild(wrap);
@@ -737,7 +1109,215 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
     pick(active);
   });
 
+  TE.subscribe(function(){ load(); showMonth(); });
+  load();
   showMonth();
+
+  /* The edits themselves. Without a db the page is exactly what it was:
+     everything renders, nothing is tappable. */
+  if(!window.claude || typeof claude.use !== 'function'){ return; }
+  claude.use('db').then(function(db){
+    if(!db){ return; }
+    store = db.collection('txn_edits');
+    store.onSnapshot(function(snap){
+      var map = {};
+      for(var i = 0; i < snap.docs.length; i++){
+        var doc = snap.docs[i], d = doc.data() || {};
+        /* a drained edit is already in the data; carrying it would double-apply
+           a rename onto a name that has already changed */
+        if(d.applied === true){ continue; }
+        d.__id = doc.id;
+        map[doc.id] = d;
+      }
+      TE.setEdits(map);
+    }, function(){});
+    load();
+    showMonth();
+  })['catch'](function(){});
+})();
+
+/* ---- over time: the whole history as one line ----
+   Three readings of the same months, all derived from #txns:
+     net    running total of every transaction — what he has, net, since the
+            first month there is data for. Not an account balance.
+     spend  what went out that month
+     cum    what has gone out since the start, running */
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var FULL = ['January','February','March','April','May','June','July',
+              'August','September','October','November','December'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun',
+             'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  var tabs = document.getElementById('trendTabs');
+  var box = document.getElementById('trendChart');
+  var whenEl = document.getElementById('trendWhen');
+  var valEl = document.getElementById('trendVal');
+  var totalEl = document.getElementById('trendTotal');
+  var noteEl = document.getElementById('trendNote');
+  var firstEl = document.getElementById('trendFirst');
+  var lastEl = document.getElementById('trendLast');
+
+  var mode = 'net', keys = [], vals = [], at = 0;
+  var W = 640, H = 190, PAD = 10;
+
+  function money(n){
+    var s = '$' + Math.abs(n).toLocaleString('en-US',
+      {minimumFractionDigits:2, maximumFractionDigits:2});
+    return n < 0 ? '−' + s : s;
+  }
+  function label(key){
+    var p = key.split('-');
+    return FULL[(+p[1]) - 1] + ' ' + p[0];
+  }
+  function shortLabel(key){
+    var p = key.split('-');
+    return MON[(+p[1]) - 1] + " '" + p[0].slice(2);
+  }
+
+  /* months oldest first, each with what went in and what went out */
+  function months(){
+    var rows = TE.rows(), by = {}, ks = [], i, k;
+    for(i = 0; i < rows.length; i++){
+      k = rows[i].date.slice(0, 7);
+      if(!by[k]){ by[k] = {net:0, out:0}; ks.push(k); }
+      by[k].net += rows[i].amt;
+      if(rows[i].amt < 0){ by[k].out += -rows[i].amt; }
+    }
+    ks.sort();
+    return {keys:ks, by:by};
+  }
+
+  function series(){
+    var m = months(), out = [], run = 0, i, k;
+    for(i = 0; i < m.keys.length; i++){
+      k = m.keys[i];
+      if(mode === 'net'){ run += m.by[k].net; out.push(run); }
+      else if(mode === 'cum'){ run += m.by[k].out; out.push(run); }
+      else { out.push(m.by[k].out); }
+    }
+    keys = m.keys;
+    vals = out;
+  }
+
+  function el(name, attrs){
+    var n = document.createElementNS(NS, name);
+    for(var k in attrs){
+      if(attrs.hasOwnProperty(k)){ n.setAttribute(k, attrs[k]); }
+    }
+    return n;
+  }
+
+  function draw(){
+    box.textContent = '';
+    box.className = 'chart' + (mode === 'net' ? '' : ' spend');
+    if(!keys.length){
+      var p = document.createElement('p');
+      p.className = 'caveat';
+      p.style.margin = '0';
+      p.textContent = 'No transactions yet — this fills in as the feed loads.';
+      box.appendChild(p);
+      whenEl.textContent = '';
+      valEl.textContent = money(0);
+      totalEl.textContent = money(0);
+      firstEl.textContent = '';
+      lastEl.textContent = '';
+      noteEl.textContent = '';
+      return;
+    }
+
+    var lo = Math.min.apply(null, vals.concat(mode === 'net' ? [0] : []));
+    var hi = Math.max.apply(null, vals.concat(mode === 'net' ? [0] : []));
+    if(hi === lo){ hi = lo + 1; }
+    var n = vals.length;
+
+    function X(i){ return n === 1 ? W / 2 : PAD + (i / (n - 1)) * (W - PAD * 2); }
+    function Y(v){ return PAD + (1 - (v - lo) / (hi - lo)) * (H - PAD * 2); }
+
+    var svg = el('svg', {viewBox:'0 0 ' + W + ' ' + H, role:'img',
+      tabindex:'0', 'aria-label':'Monthly trend, use arrow keys to step'});
+
+    if(lo < 0 && hi > 0){
+      svg.appendChild(el('line', {'class':'zero', x1:0, x2:W,
+        y1:Y(0), y2:Y(0)}));
+    }
+
+    var d = '', a = '', i;
+    for(i = 0; i < n; i++){
+      d += (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(vals[i]).toFixed(1) + ' ';
+    }
+    var floor = (lo < 0 && hi > 0) ? Y(0) : H - PAD;
+    a = d + 'L' + X(n - 1).toFixed(1) + ' ' + floor.toFixed(1)
+      + ' L' + X(0).toFixed(1) + ' ' + floor.toFixed(1) + ' Z';
+    svg.appendChild(el('path', {'class':'ar', d:a}));
+    svg.appendChild(el('path', {'class':'ln', d:d}));
+
+    svg.appendChild(el('line', {'class':'gd', x1:X(at), x2:X(at),
+      y1:PAD, y2:H - PAD}));
+    svg.appendChild(el('circle', {'class':'pt', cx:X(at), cy:Y(vals[at]), r:4.5}));
+
+    var hit = el('rect', {x:0, y:0, width:W, height:H, fill:'transparent'});
+    function seek(ev){
+      var r = svg.getBoundingClientRect();
+      var x = ((ev.clientX - r.left) / r.width) * W;
+      var idx = n === 1 ? 0
+        : Math.round(((x - PAD) / (W - PAD * 2)) * (n - 1));
+      idx = Math.max(0, Math.min(n - 1, idx));
+      if(idx !== at){ at = idx; draw(); } else { readout(); }
+    }
+    hit.addEventListener('pointerdown', seek);
+    hit.addEventListener('pointermove', function(ev){
+      if(ev.buttons){ seek(ev); }
+    });
+    svg.addEventListener('keydown', function(ev){
+      if(ev.key === 'ArrowLeft' && at > 0){ at--; draw(); svg.focus(); }
+      if(ev.key === 'ArrowRight' && at < n - 1){ at++; draw(); svg.focus(); }
+    });
+    svg.appendChild(hit);
+    box.appendChild(svg);
+
+    firstEl.textContent = shortLabel(keys[0]);
+    lastEl.textContent = n > 1 ? shortLabel(keys[n - 1]) : '';
+    readout();
+  }
+
+  function readout(){
+    whenEl.textContent = label(keys[at]);
+    /* spend is a magnitude, and red says which direction it went */
+    var v = vals[at];
+    valEl.textContent = money(v);
+    valEl.className = 'trend-val' + ((mode !== 'net' || v < 0) ? ' neg' : '');
+    totalEl.textContent = money(vals[vals.length - 1]);
+    noteEl.textContent = mode === 'net'
+      ? 'Running total of every transaction since ' + label(keys[0])
+        + ' — the money that has moved, not an account balance.'
+      : (mode === 'cum'
+        ? 'Everything spent since ' + label(keys[0]) + ', added up.'
+        : 'What went out each month. Transfers are not counted.');
+  }
+
+  Array.prototype.forEach.call(tabs.children, function(b){
+    b.addEventListener('click', function(){
+      mode = b.getAttribute('data-mode');
+      Array.prototype.forEach.call(tabs.children, function(x){
+        x.setAttribute('aria-pressed',
+          String(x.getAttribute('data-mode') === mode));
+      });
+      series();
+      at = Math.max(0, vals.length - 1);
+      draw();
+    });
+  });
+
+  function rebuild(){
+    var wasEnd = (at >= vals.length - 1);
+    series();
+    if(wasEnd || at > vals.length - 1){ at = Math.max(0, vals.length - 1); }
+    draw();
+  }
+
+  TE.subscribe(rebuild);
+  rebuild();
 })();
 
 /* ---- card credits: cycle maths, sorting, and the used-ticks ---- */

@@ -17,9 +17,22 @@ Cards:
 | Card | Source |
 |---|---|
 | Finances | `accountant_monthly` and `accountant_ledger`. Renders empty and says so until data exists |
+| Over Time | The same transaction array as Finances, read as a line across every month |
 | Email | `engine_email_actions` from today's sweep |
 | Food | `doctor_food_log`, both people, last 7 days |
 | Phase health | Newest `engine_phase_runs` row per phase |
+
+## Edits made on the page
+
+Tapping a transaction on the report opens a rename-and-categorize panel. What he
+saves goes into the artifact's own db store, not into Postgres — the page has no
+database credentials and should not have any. The 8:00am run drains that store
+first thing, before it reads anything, so an edit made today is in the data
+tomorrow and the row stops being marked *edited* on its own.
+
+A merchant-scope edit writes the two merchant maps as well as the rows, which is
+the point of those maps: name a merchant once and every future charge from it
+arrives named and categorized with nobody looking at it.
 
 ## The part that matters most
 
