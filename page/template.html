@@ -1753,27 +1753,40 @@ var TEACT = (function(){
   claude.use('mcp').then(function(mcp){
     if(!mcp){ return; }
 
-    /* One watch per card, so a failure is contained to the card it feeds. */
-    function watch(sql, onRows, onFail){
-      mcp.watchTool(SERVER, TOOL, { project_id: PROJECT, query: sql },
-        function(ev){
-          if(ev.type === 'error'){
-            var why = explain(ev.error && ev.error.code);
-            if(why && onFail){ onFail(why); }
+    /* One call per card, so a failure is contained to the card it feeds.
+
+       callTool, not watchTool: four watches registered on the same
+       (server, tool) delivered each other's results, and the money card drew
+       the one-row answer from the sync query — one row with no date, which
+       filtered down to an empty card reading "1 rows live". A promise resolves
+       once with its own result and cannot be crossed that way.
+
+       `key` names a column only this query returns. Rows that do not carry it
+       came from somewhere else and are ignored rather than drawn, so a card can
+       never again render another card's data. */
+    function ask(sql, key, onRows, onFail){
+      mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql },
+                   { cache: { staleTime: 60000 } })
+        .then(function(res){
+          var rows = findRows(res, 0);
+          if(rows && rows.length && !(key in rows[0])){
+            if(onFail){ onFail('reply not understood'); }
             return;
           }
-          var rows = findRows(ev.result, 0);
           if(rows){ onRows(rows); }
-          else if(isEmptyResult(ev.result)){ onRows([]); }
+          else if(isEmptyResult(res)){ onRows([]); }
           else if(onFail){ onFail('reply not understood'); }
-        },
-        { cache: { staleTime: 60000 } });
+        })['catch'](function(err){
+          var why = explain(err && err.code);
+          if(why && onFail){ onFail(why); }
+        });
     }
 
     /* ---------------- money + over time ---------------- */
-    watch(
+    ask(
       'select id, date, description, category, amount ' +
       'from accountant_transactions order by date desc, id desc',
+      'amount',
       function(rows){
         var shaped = rows.map(function(r){
           return { id: r.id, date: r.date, desc: r.description,
@@ -1787,13 +1800,14 @@ var TEACT = (function(){
     /* ---------------- when the bank feed last loaded ----------------
        This is the `synced` line: the real SimpleFIN load, not the page's own
        read, which would always look current and so would say nothing. */
-    watch(
-      "select to_char(max(ran_at) at time zone 'America/Los_Angeles','Mon DD') as d, " +
-      "to_char(max(ran_at) at time zone 'America/Los_Angeles','HH12:MI AM') as t " +
-      "from accountant_phase_runs where mode = 'sweep'",
+    ask(
+      "select to_char(max(ran_at) at time zone 'America/Los_Angeles','Mon DD') " +
+      "as swept_d, to_char(max(ran_at) at time zone 'America/Los_Angeles'," +
+      "'HH12:MI AM') as swept_t from accountant_phase_runs where mode = 'sweep'",
+      'swept_d',
       function(rows){
         var r = rows[0];
-        sweptAt = (r && r.d) ? (r.d + ' at ' + r.t) : '';
+        sweptAt = (r && r.swept_d) ? (r.swept_d + ' at ' + r.swept_t) : '';
         if(!sweptAt){ staticSync = 'Never synced'; }
         syncLine();
       },
@@ -1801,12 +1815,13 @@ var TEACT = (function(){
     );
 
     /* ---------------- nutrition, both people, 7 days ---------------- */
-    watch(
+    ask(
       "select person, to_char(date,'Dy Mon DD') as day, " +
       "round(sum(calories)) as cal, round(sum(protein_g)) as p, " +
       "round(sum(carbs_g)) as c, round(sum(fat_g)) as f " +
       "from doctor_food_log where date >= current_date - 6 " +
       "group by person, date order by date desc, person",
+      'person',
       function(rows){
         function fill(id, who){
           var tb = document.getElementById(id);
@@ -1848,7 +1863,7 @@ var TEACT = (function(){
        review, calendar items that named a date but no time, and the sweep
        itself when it failed or has not run. That last one is the safety net
        for a broken routine, which has nowhere else on the page to appear. */
-    watch(
+    ask(
       "select 'Draft' as tag, coalesce(subject_snippet,'(no subject)') as txt, " +
       "note as detail, to_char(acted_at at time zone 'America/Los_Angeles'," +
       "'YYYY-MM-DD') as dt from engine_email_actions " +
@@ -1878,6 +1893,7 @@ var TEACT = (function(){
       "'No run recorded under phase sweep', " +
       "to_char(now() at time zone 'America/Los_Angeles','YYYY-MM-DD') " +
       "where not exists (select 1 from engine_phase_runs where phase = 'sweep')",
+      'tag',
       function(rows){
         var seen = {};
         TEACT.setItems(rows.map(function(r){
