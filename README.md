@@ -116,10 +116,6 @@ It was then a three-phase pipeline — ingest, sweep, present — which is where
 "phase" vocabulary in `engine_phase_runs` comes from. Phase 1 was removed on
 2026-09-06; phases 2, 2b and 3 became the single sweep on 2026-09-08.
 
-`phase2/` and `phase3/` now hold nothing but retirement notices, so that a
-scheduler entry still pointing at an old prompt exits cleanly instead of doing
-something. Delete both folders once those entries are gone.
-
 `sql/archive/` holds migrations that no longer describe anything live:
 `002` migrated the apply-engine job tables, and `003` is a retention function
 that reads three tables which no longer exist. Kept as history; do not run them.
