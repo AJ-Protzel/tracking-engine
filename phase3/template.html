@@ -190,6 +190,7 @@ h2{font-family:"Bricolage Grotesque","Public Sans",sans-serif;font-size:16px;
   vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 .chart .pt{fill:var(--card);stroke:var(--ink);stroke-width:2;
   vector-effect:non-scaling-stroke}
+.chart .ln.pre{opacity:.42;stroke-dasharray:4 4}
 .chart .gd{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
 .chart .zero{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;
   stroke-dasharray:3 4}
@@ -1138,10 +1139,16 @@ var TE = (function(){
 
 /* ---- over time: the whole history as one line ----
    Three readings of the same months, all derived from #txns:
-     net    running total of every transaction — what he has, net, since the
-            first month there is data for. Not an account balance.
+     net    running total of every transaction since `complete_from`. It starts
+            there and nowhere earlier: the months before it are partial imports
+            that carry spending without the income beside it, and running a
+            total through them draws a plunge that never happened. Not an
+            account balance either — it is what has moved since that month.
      spend  what went out that month
-     cum    what has gone out since the start, running */
+     cum    what has gone out since the start, running
+   Months with no rows are still months: the sequence runs calendar month by
+   calendar month, so the year this database has no data for reads as the flat
+   stretch it was, not as one step. */
 (function(){
   var NS = 'http://www.w3.org/2000/svg';
   var FULL = ['January','February','March','April','May','June','July',
@@ -1158,7 +1165,7 @@ var TE = (function(){
   var firstEl = document.getElementById('trendFirst');
   var lastEl = document.getElementById('trendLast');
 
-  var mode = 'net', keys = [], vals = [], at = 0;
+  var mode = 'net', keys = [], vals = [], at = 0, cut = 0;
   var W = 640, H = 190, PAD = 10;
 
   function money(n){
@@ -1175,28 +1182,51 @@ var TE = (function(){
     return MON[(+p[1]) - 1] + " '" + p[0].slice(2);
   }
 
-  /* months oldest first, each with what went in and what went out */
+  function step(k){
+    var y = +k.slice(0, 4), m = +k.slice(5, 7) + 1;
+    if(m > 12){ y++; m = 1; }
+    return y + '-' + (m < 10 ? '0' : '') + m;
+  }
+
+  /* every calendar month from the first row to the last, empty ones included */
   function months(){
-    var rows = TE.rows(), by = {}, ks = [], i, k;
+    var rows = TE.rows(), by = {}, seen = [], i, k;
     for(i = 0; i < rows.length; i++){
       k = rows[i].date.slice(0, 7);
-      if(!by[k]){ by[k] = {net:0, out:0}; ks.push(k); }
+      if(!by[k]){ by[k] = {net:0, out:0}; seen.push(k); }
       by[k].net += rows[i].amt;
       if(rows[i].amt < 0){ by[k].out += -rows[i].amt; }
     }
-    ks.sort();
+    if(!seen.length){ return {keys:[], by:by}; }
+    seen.sort();
+    var ks = [], k2 = seen[0], last = seen[seen.length - 1];
+    while(k2 <= last){
+      if(!by[k2]){ by[k2] = {net:0, out:0}; }
+      ks.push(k2);
+      k2 = step(k2);
+    }
     return {keys:ks, by:by};
   }
 
   function series(){
-    var m = months(), out = [], run = 0, i, k;
-    for(i = 0; i < m.keys.length; i++){
-      k = m.keys[i];
-      if(mode === 'net'){ run += m.by[k].net; out.push(run); }
-      else if(mode === 'cum'){ run += m.by[k].out; out.push(run); }
-      else { out.push(m.by[k].out); }
+    var m = months(), from = window.__completeFrom || '';
+    var ks = m.keys, out = [], run = 0, i;
+
+    /* where the trustworthy months start; the net line begins there */
+    cut = 0;
+    for(i = 0; i < ks.length; i++){
+      if(from && ks[i] < from){ cut = i + 1; }
     }
-    keys = m.keys;
+    if(cut >= ks.length){ cut = 0; }
+    if(mode === 'net'){ ks = ks.slice(cut); }
+
+    for(i = 0; i < ks.length; i++){
+      var b = m.by[ks[i]];
+      if(mode === 'net'){ run += b.net; out.push(run); }
+      else if(mode === 'cum'){ run += b.out; out.push(run); }
+      else { out.push(b.out); }
+    }
+    keys = ks;
     vals = out;
   }
 
@@ -1237,19 +1267,36 @@ var TE = (function(){
     var svg = el('svg', {viewBox:'0 0 ' + W + ' ' + H, role:'img',
       tabindex:'0', 'aria-label':'Monthly trend, use arrow keys to step'});
 
-    if(lo < 0 && hi > 0){
+    /* the zero line is the whole point of the net reading: the distance from
+       it is how far he is from where the month started */
+    var zeroed = lo <= 0 && hi >= 0;
+    if(zeroed){
       svg.appendChild(el('line', {'class':'zero', x1:0, x2:W,
         y1:Y(0), y2:Y(0)}));
     }
 
-    var d = '', a = '', i;
+    var d = '', a = '', pre = '', i;
     for(i = 0; i < n; i++){
       d += (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(vals[i]).toFixed(1) + ' ';
     }
-    var floor = (lo < 0 && hi > 0) ? Y(0) : H - PAD;
+    var floor = zeroed ? Y(0) : H - PAD;
     a = d + 'L' + X(n - 1).toFixed(1) + ' ' + floor.toFixed(1)
       + ' L' + X(0).toFixed(1) + ' ' + floor.toFixed(1) + ' Z';
     svg.appendChild(el('path', {'class':'ar', d:a}));
+
+    /* the partial months are drawn, but drawn as what they are */
+    if(mode !== 'net' && cut > 0){
+      for(i = 0; i < Math.min(cut + 1, n); i++){
+        pre += (i ? 'L' : 'M') + X(i).toFixed(1) + ' '
+          + Y(vals[i]).toFixed(1) + ' ';
+      }
+      d = '';
+      for(i = Math.max(0, cut); i < n; i++){
+        d += (i === Math.max(0, cut) ? 'M' : 'L') + X(i).toFixed(1) + ' '
+          + Y(vals[i]).toFixed(1) + ' ';
+      }
+      svg.appendChild(el('path', {'class':'ln pre', d:pre}));
+    }
     svg.appendChild(el('path', {'class':'ln', d:d}));
 
     svg.appendChild(el('line', {'class':'gd', x1:X(at), x2:X(at),
@@ -1288,12 +1335,17 @@ var TE = (function(){
     valEl.textContent = money(v);
     valEl.className = 'trend-val' + ((mode !== 'net' || v < 0) ? ' neg' : '');
     totalEl.textContent = money(vals[vals.length - 1]);
-    noteEl.textContent = mode === 'net'
+    var partial = (mode !== 'net' && cut > 0)
+      ? ' Everything before ' + label(keys[cut]) + ' is drawn faint: those'
+        + ' months are partial imports, so they run lower than the truth.'
+      : '';
+    noteEl.textContent = (mode === 'net'
       ? 'Running total of every transaction since ' + label(keys[0])
-        + ' — the money that has moved, not an account balance.'
+        + ' — the money that has moved, not an account balance. It starts there'
+        + ' because the months before it are partial.'
       : (mode === 'cum'
         ? 'Everything spent since ' + label(keys[0]) + ', added up.'
-        : 'What went out each month. Transfers are not counted.');
+        : 'What went out each month. Transfers are not counted.')) + partial;
   }
 
   Array.prototype.forEach.call(tabs.children, function(b){
