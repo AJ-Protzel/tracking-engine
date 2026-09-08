@@ -10,8 +10,21 @@ Owners, so this stays true:
 |---|---|
 | Load transactions | `accountant-simplefin-sweep` edge function, on a `pg_cron` schedule |
 | Name and categorize merchants | the `accountant` account skill, on demand |
-| Read for the morning report | phase 3, read-only |
+| Name and categorize from the page | phase 3, draining `txn_edits` at 8:00am |
+| Read for the morning report | phase 3 |
 | Anything else | nobody — do not add a routine for it |
+
+Phase 3 gained a write on 2026-09-08, and it is the one exception to "read-only"
+in this system. Tapping a transaction on the morning page renames or
+recategorizes it; the edit is parked in the artifact's own store and the next
+8:00am run folds it into `accountant_merchant_aliases` and
+`accountant_merchant_categories`, then marks it applied.
+
+So the merchant maps now have TWO writers — the skill and phase 3 — which is the
+one place this system knowingly breaks its own one-owner rule. They write the
+same two tables the same way, and an alias is idempotent, so a collision costs
+nothing worse than a redundant upsert. Anything beyond those two tables is still
+nobody's: phase 3 must never UPDATE or DELETE a transaction.
 
 ## The function
 

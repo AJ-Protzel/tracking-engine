@@ -8,8 +8,10 @@ Holds `routine_3_artifact.md` and `template.html`.
 
 ## 3 — build the report · 8:00am PT
 
-Read-only against the database. Publishes to a stable URL so the home-screen
-icon never breaks, and is designed for a phone first because that is where it is
+Read-only against the database apart from one narrow write: it drains the
+renames and recategorizations he made on yesterday's page into the merchant
+maps before it reads them. Publishes to a stable URL so the home-screen icon
+never breaks, and is designed for a phone first because that is where it is
 read.
 
 Cards:
