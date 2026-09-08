@@ -1748,6 +1748,40 @@ var TEACT = (function(){
     }
   }
 
+  /* When a card cannot read its reply, park a sketch of what actually came
+     back so it can be read from a session with read_db. Cheaper and more
+     accurate than asking Adrien to describe a page. */
+  var diag = null;
+  if(window.claude && typeof claude.use === 'function'){
+    claude.use('db').then(function(db){ if(db){ diag = db.collection('diag'); } },
+                          function(){});
+  }
+  function sketch(v, d){
+    if(v === null){ return 'null'; }
+    if(Array.isArray(v)){
+      return 'array[' + v.length + ']' +
+        (v.length && d < 3 ? '<' + sketch(v[0], d + 1) + '>' : '');
+    }
+    var t = typeof v;
+    if(t === 'string'){
+      return 'string(' + v.length + '):' + v.slice(0, 200) +
+             (v.length > 400 ? ' ...TAIL... ' + v.slice(-200) : '');
+    }
+    if(t === 'object'){
+      var ks = [];
+      try { ks = Object.keys(v).slice(0, 8); } catch(e){}
+      if(d >= 3){ return 'object{' + ks.join(',') + '}'; }
+      return 'object{' + ks.map(function(k){
+        return k + ':' + sketch(v[k], d + 1);
+      }).join(', ') + '}';
+    }
+    return t + ':' + String(v).slice(0, 60);
+  }
+  function park(name, doc){
+    if(!diag){ return; }
+    try { doc.at = new Date().toISOString(); diag.doc(name).set(doc); } catch(e){}
+  }
+
   if(!window.claude || typeof claude.use !== 'function'){ return; }
 
   claude.use('mcp').then(function(mcp){
@@ -1770,13 +1804,24 @@ var TEACT = (function(){
         .then(function(res){
           var rows = findRows(res, 0);
           if(rows && rows.length && !(key in rows[0])){
+            park(key, { kind: 'wrong-shape', want: key,
+                        got: Object.keys(rows[0]).join(','),
+                        n: rows.length });
             if(onFail){ onFail('reply not understood'); }
             return;
           }
-          if(rows){ onRows(rows); }
-          else if(isEmptyResult(res)){ onRows([]); }
-          else if(onFail){ onFail('reply not understood'); }
+          if(rows){ onRows(rows); return; }
+          if(isEmptyResult(res)){ onRows([]); return; }
+          park(key, { kind: 'unparsed',
+                      payload: sketch(res && res.payload, 0),
+                      structured: sketch(res && res.structuredContent, 0),
+                      firstText: sketch(res && res.content && res.content[0] &&
+                                        res.content[0].text, 0),
+                      blocks: (res && res.content || []).length });
+          if(onFail){ onFail('reply not understood'); }
         })['catch'](function(err){
+          park(key, { kind: 'rejected', code: (err || {}).code,
+                      message: String((err || {}).message || '').slice(0, 300) });
           var why = explain(err && err.code);
           if(why && onFail){ onFail(why); }
         });
