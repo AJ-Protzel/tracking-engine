@@ -1692,8 +1692,15 @@ var TEACT = (function(){
   function findRows(v, d){
     if(v == null || d > 6){ return null; }
     if(Array.isArray(v)){
-      return (v.length && v[0] && typeof v[0] === 'object' &&
-              !Array.isArray(v[0])) ? v : null;
+      var f = v[0];
+      if(!(v.length && f && typeof f === 'object' && !Array.isArray(f))){
+        return null;
+      }
+      /* `res.content` is an array of {type, text} envelope blocks, and it is
+         an array of objects, so a naive walk returns it as the answer. It is
+         the wrapper, never the rows. */
+      if(typeof f.type === 'string' && typeof f.text === 'string'){ return null; }
+      return v;
     }
     if(typeof v === 'string'){
       var cand = [], t = v.trim(), m, i, j;
@@ -1798,11 +1805,27 @@ var TEACT = (function(){
        `key` names a column only this query returns. Rows that do not carry it
        came from somewhere else and are ignored rather than drawn, so a card can
        never again render another card's data. */
+    /* Search the places a result can carry rows, in order, instead of walking
+       the whole envelope: payload first, then structuredContent, then the text
+       of each content block. Walking blind is what found `content` first. */
+    function rowsFrom(res){
+      if(!res){ return null; }
+      var tries = [res.payload, res.structuredContent], c = res.content || [];
+      for(var i = 0; i < c.length; i++){
+        if(c[i] && typeof c[i].text === 'string'){ tries.push(c[i].text); }
+      }
+      for(var j = 0; j < tries.length; j++){
+        var got = findRows(tries[j], 0);
+        if(got){ return got; }
+      }
+      return null;
+    }
+
     function ask(sql, key, onRows, onFail){
       mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql },
                    { cache: { staleTime: 60000 } })
         .then(function(res){
-          var rows = findRows(res, 0);
+          var rows = rowsFrom(res);
           if(rows && rows.length && !(key in rows[0])){
             park(key, { kind: 'wrong-shape', want: key,
                         got: Object.keys(rows[0]).join(','),
@@ -1828,19 +1851,30 @@ var TEACT = (function(){
     }
 
     /* ---------------- money + over time ---------------- */
-    ask(
-      'select id, date, description, category, amount ' +
-      'from accountant_transactions order by date desc, id desc',
-      'amount',
-      function(rows){
-        var shaped = rows.map(function(r){
-          return { id: r.id, date: r.date, desc: r.description,
-                   cat: r.category, amt: r.amount };
-        });
-        if(TE.setRows(shaped)){ liveRows = rows.length; syncLine(); }
-      },
-      function(why){ if(line){ line.textContent = staticSync + ' · ' + why; } }
-    );
+    /* Named and re-runnable: a save has to be able to pull the rows again.
+       callTool resolves once and never refreshes on its own, so without this
+       an edit would be written to the database and never read back. */
+    function loadTxns(after){
+      ask(
+        'select id, date, description, category, amount ' +
+        'from accountant_transactions order by date desc, id desc',
+        'amount',
+        function(rows){
+          var shaped = rows.map(function(r){
+            return { id: r.id, date: r.date, desc: r.description,
+                     cat: r.category, amt: r.amount };
+          });
+          var ok = TE.setRows(shaped);
+          if(ok){ liveRows = rows.length; syncLine(); }
+          if(after){ after(ok); }
+        },
+        function(why){
+          if(line){ line.textContent = staticSync + ' · ' + why; }
+          if(after){ after(false); }
+        }
+      );
+    }
+    loadTxns();
 
     /* ---------------- when the bank feed last loaded ----------------
        This is the `synced` line: the real SimpleFIN load, not the page's own
@@ -2005,13 +2039,26 @@ var TEACT = (function(){
       if(!sql){ return; }
       mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql })
         .then(function(){
-          if(store){
+          /* Order matters. Marking the edit applied removes it from the
+             overlay TE draws on top of the rows, so doing that before the
+             rows are re-read makes a saved rename flick back to the old
+             name — the write succeeded, but nothing had fetched the result.
+             Re-read first, and only drop the overlay once the fresh rows
+             are in. A failed re-read leaves the edit applied:false, so it
+             keeps showing and is retried on the next load. */
+          function done(){
+            if(!store){ return; }
             store.doc(id).update({ applied: true,
                                    applied_at: new Date().toISOString() })
               ['catch'](function(){});
           }
-          /* the watch re-executes, and the row comes back renamed */
-          if(mcp.invalidate){ mcp.invalidate(SERVER, TOOL)['catch'](function(){}); }
+          if(mcp.invalidate){
+            mcp.invalidate(SERVER, TOOL)
+              .then(function(){ loadTxns(function(ok){ if(ok){ done(); } }); },
+                    function(){ loadTxns(function(ok){ if(ok){ done(); } }); });
+          } else {
+            loadTxns(function(ok){ if(ok){ done(); } });
+          }
         })['catch'](function(){ /* stays applied:false, retried next load */ });
     }
 
