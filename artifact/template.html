@@ -720,6 +720,42 @@ var TE = (function(){
   };
 })();
 
+/* ---- complete_from, derived rather than declared ----
+   The first month whose data can be trusted. Over Time starts its running
+   total there, because a month holding spending without the income beside it
+   draws a plunge that never happened.
+
+   This used to be a literal in #meta, and it went stale the moment a CSV import
+   filled the 2025-03 - 2026-03 gap: the page went on treating three years of
+   complete history as partial because nobody remembered to lower a constant.
+   A month with outgoings but no income at all is a half-import; the history
+   becomes real in the first month after the last of those.
+
+   Recomputed whenever the rows change, because the offline fallback carries one
+   month and the live data carries three years — a value derived from the
+   fallback would be wrong the moment the connector answers. */
+(function(){
+  function compute(){
+    var rows = TE.rows(), seen = {}, i, r, m;
+    for(i = 0; i < rows.length; i++){
+      r = rows[i];
+      if(r.cat === 'transfer'){ continue; }
+      m = r.date.slice(0, 7);
+      if(!seen[m]){ seen[m] = { out: 0, inn: 0 }; }
+      if(r.amt < 0){ seen[m].out++; } else { seen[m].inn++; }
+    }
+    var keys = Object.keys(seen).sort(), lastBad = '', i2;
+    for(i2 = 0; i2 < keys.length; i2++){
+      if(seen[keys[i2]].out > 0 && seen[keys[i2]].inn === 0){ lastBad = keys[i2]; }
+    }
+    for(i2 = 0; i2 < keys.length; i2++){
+      if(keys[i2] > lastBad){ window.__completeFrom = keys[i2]; return; }
+    }
+  }
+  compute();
+  TE.subscribe(compute);
+})();
+
 /* ---- money: one array in, everything else derived ----
    The navigator picks a month; the figures, tabs, bars and ledger are all
    rebuilt for whichever is showing. */
