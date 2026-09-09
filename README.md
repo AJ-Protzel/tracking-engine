@@ -1,33 +1,34 @@
 # tracking-engine
 
-A personal tracking system for one person. Bank transactions and email arrive on
-their own and are swept automatically; everything else is added by talking to
-the skill that owns it. One private web page shows the result.
+A personal tracking system for one person.
 
-Two things run on a schedule. Everything else is conversational.
+It watches two things that arrive on their own — bank transactions and email —
+and shows what it finds on a single private web page: where the money went, what
+was eaten, and what still needs a human. Everything else is added by talking to
+a skill in a chat, not by anything running on a timer.
 
 ```
-12:30am PT   accountant-simplefin-sweep   Supabase edge function, pg_cron
- 1:00am PT   Tracking Engine Sweep        one Claude routine, sweeps/email-sweep.md
+12:30am PT   simplefin-sweep    loads the night's transactions   (Supabase, free)
+ 1:00am PT   email-sweep        sorts and files the inbox        (one Claude run)
 ```
 
-That is the whole of it.
+Two scheduled jobs. That is the whole of the automation.
 
-## The rule the design rests on
+## The rule everything follows
 
-> **Schedule only what arrives whether or not he asks.**
+> **Schedule only what arrives whether or not you ask.**
 
 Transactions arrive from the bank. Mail arrives in the inbox. Neither waits for
 a request, so both need something watching.
 
-Food, health entries, merchant categorization, tutoring — those only ever happen
-because Adrien starts them, in a chat, with the skill that owns that data. They
-need no schedule, no sweep and no routine. Adding one only creates a second
-writer for a table that already has an owner.
+Food, health entries, merchant names, tutoring — those only ever happen because
+Adrien starts them, in a chat, with the skill that owns that data. They need no
+schedule and no routine. Adding one only creates a second writer for a table
+that already has an owner, and nothing to reconcile them when they disagree.
 
-This is the rule to apply when the system next wants to grow. It is also what
-retired two dead pipelines: job tracking, and an xlsx food tracker that synced
-itself to Drive nightly so a cloud routine could email a chart back.
+Apply this rule when the system next wants to grow. It is also what retired two
+dead pipelines: a job-application scraper, and an xlsx food tracker that synced
+itself to Drive every night so a cloud routine could email a chart back.
 
 ## Layout
 
@@ -40,62 +41,60 @@ database/               SCHEMA.md — what the database allows — and the migra
 artifact-template.html  a backup copy of the published page
 ```
 
-Sixteen files, one README. Per-folder READMEs were tried and drifted: one still
-described a phase 3 that had been deleted the day before.
-
-`sweeps/` groups by *what these do* rather than by language: both are scheduled
-passes that bring outside data in, which is the one job this repo automates.
-One happens to be TypeScript and the other a prompt.
+Sixteen files, one README. `sweeps/` groups by what those two jobs *do* rather
+than by what they are written in: one is TypeScript deployed to Supabase, the
+other a markdown prompt, and they belong together because they are the only two
+things here that run unasked.
 
 **`sweeps/email-sweep.md` must keep that exact path.** The scheduler fetches it
 by raw GitHub URL at run time, so moving or renaming it breaks the 1am run until
-the scheduler entry is edited to match. It moved here from `sweep/routine.md` on
-2026-09-09.
+the scheduler entry is edited to match.
 
 `deno.json`'s import map is currently unused — both imports in the `.ts` are
 fully-qualified `jsr:` specifiers. It stays because it is deploy config for a
-function whose redeploy cannot be tested from here.
+function whose redeploy cannot be tested from a clone.
 
-## Where the data comes from
+## Who owns what
 
-| Table group | Written by |
+| Tables | Written by |
 |---|---|
-| `accountant_*` | the SimpleFIN edge function; the `accountant` skill on demand; the page, when a charge is renamed |
+| `engine_*` | the email sweep |
+| `accountant_*` | the SimpleFIN function; the `accountant` skill on demand; the page, when a charge is renamed |
 | `doctor_*` | the `doctor` skill, when Adrien logs something in a chat |
-| `engine_*` | the sweep |
 
-One owner per table, with one knowing exception: the merchant maps are written
-by both the `accountant` skill and the page. They write the same two tables the
-same way and an upsert is idempotent, so a collision costs nothing.
+A table's prefix names its owner, which is why a skill can be told "you own
+every table named `doctor_*`" instead of being handed a list that goes stale.
 
-**Before writing anything, read `database/SCHEMA.md`.** It lists every constrained
-column and its legal values. Two bugs in one day came from a value list living
-in the database and a second copy of it living in someone's head.
+One owner per table, with one deliberate exception: the merchant maps are
+written by both the `accountant` skill and the page. They write the same two
+tables the same way and an upsert is idempotent, so a collision costs nothing.
+
+**Before writing anything, read `database/SCHEMA.md`.** It lists every
+constrained column and its legal values, plus four rules the columns imply but
+cannot enforce. Two bugs in one day came from an allowed-value list living in
+the database and a second copy of it living in someone's head.
 
 ## The skills
 
-Adrien talks to these; they are not scheduled. **They live on claude.ai, not in
-this repo, and that is on purpose** — nothing here reads them, so a copy checked
-in would be a second definition with nothing reconciling it against the live one.
+Adrien talks to these; none of them is scheduled. **They live on claude.ai, not
+in this repo, and that is deliberate** — nothing here reads them, so a copy
+checked in would be a second definition with nothing reconciling it against the
+live one. What matters here is the boundary, not the implementation.
 
 | Skill | Owns |
 |---|---|
 | `secretary` | email and calendar — including the judgment the 1am sweep uses |
 | `accountant` | transactions, merchant names and categories |
 | `doctor` | food, nutrition and health entries |
-| `tutor` | data-engineering practice. No data on the page |
+| `tutor` | data-engineering practice. Nothing on the page |
 
-What matters here is the boundary — which skill owns which tables — not their
-implementation. The sweep does not restate the secretary's rules; it calls the
-skill, so a sweep at 1am and a request at 2pm cannot drift apart.
+## The email sweep
 
-## The sweep
-
-`sweeps/email-sweep.md` is the prompt. The cloud routine **Tracking Engine Sweep**
-fetches it at run time and follows everything after the first `---`, so editing
-that file and pushing changes live behavior on the next run. There is nothing to
-paste into the scheduler — and pasting a prompt body there creates a second copy
-that drifts with nothing to say so.
+`sweeps/email-sweep.md` is the prompt. The cloud routine **Tracking Engine
+Sweep** fetches it at run time and follows everything after the first `---`, so
+editing that file and pushing changes live behaviour on the next run. There is
+nothing to paste into the scheduler — and pasting a prompt body there creates a
+second copy that drifts with nothing to say so.
 
 | | |
 |---|---|
@@ -103,25 +102,36 @@ that drifts with nothing to say so.
 | Connectors | Supabase, Gmail, Google Calendar |
 | Writes | `engine_email_actions`, `engine_blocklist`, `engine_calendar_intents`, `engine_phase_runs` |
 
-### Why there is exactly one
+It does the email work *by calling the `secretary` skill*, rather than restating
+its rules. That way a sweep at 1am and a request at 2pm cannot drift apart: the
+skill holds the judgment, the prompt holds only what unattended running needs —
+a run row, caps, retry limits, and the values the database will accept.
 
-This was three routines until 2026-09-08: an email sweep at 7:15am, a calendar
-drain at 7:45am, and a page build at 8:00am, each paying for its own session
-boot, connector setup and run row.
+Threads that name a date **and** a time become calendar events immediately. A
+date with no time becomes a `skipped` row in `engine_calendar_intents`, which is
+that table's only remaining job: it is what the page's Requires Action card
+reads to say something needs adding by hand. A guessed time is worse than no
+entry.
+
+### Why there is only one routine
+
+This was three until 2026-09-08: an email sweep at 7:15am, a calendar drain at
+7:45am, and a page build at 8:00am, each paying for its own session boot,
+connector setup and run row.
 
 The calendar drain existed because it was a separate session, and a calendar
-failure should not take the inbox pass down with it. Inside one session that is
-a `try`/`catch`, not a table and a second routine. The page build existed because
-a model had to render the page; it no longer does.
+failure should not take the inbox pass down with it — inside one session that is
+a `try`/`catch`, not a table and a second routine. The page build existed
+because a model had to render the page. It no longer does.
 
-### The 1am tradeoff, on purpose
+### Why 1am
 
-The sweep covers yesterday's mail, and mail arriving between 1am and when Adrien
-wakes is swept the next night. That puts the run at the far end of his usage
-window rather than thirty minutes before he reads.
+It puts the run at the far end of the usage window rather than thirty minutes
+before Adrien reads. The tradeoff is real and chosen: the sweep covers
+yesterday's mail, and anything arriving between 1am and morning waits a day.
 
-The page does not care — it queries live, so it always shows the current state
-of the database no matter when the sweep last ran.
+The page does not care. It queries live, so it shows the current state of the
+database no matter when the sweep last ran.
 
 ## The page
 
@@ -129,23 +139,30 @@ of the database no matter when the sweep last ran.
 private, read on a phone from the home screen. It carries transactions, food
 entries and email subjects. Never share it, and never publish it to a second URL.
 
+Five cards: **Money** (a month navigator, three figures, spend by category, and
+the day-grouped ledger behind a disclosure), **Over Time** (the whole history as
+one line, read three ways), **Card Credits** (static, ticked by hand),
+**Nutrition** (7 days, both people), and **Requires Action** (drafts waiting,
+mail flagged for review, calendar items missing a time, and the sweep itself
+when it failed or has not run).
+
 It queries Supabase directly, through Adrien's own connector, every time it is
 opened. Nothing renders it and nothing republishes it on a schedule.
 
 Until 2026-09-08 a routine rebuilt it every morning: read a 68 KB template and
-~2,000 transactions into a model, write the entire page back out. It cost tens of
-thousands of output tokens a day, it was only ever as fresh as the last run, and
-every design change made on the page had to be backported here or the next
-morning would flatten it. Both problems went away with the same change.
+~2,000 transactions into a model, then write the entire page back out. It cost
+tens of thousands of output tokens a day, it was only ever as fresh as the last
+run, and every design change made on the page had to be backported here or the
+next morning would flatten it. One change removed all three problems.
 
-**So: never publish this artifact from a routine.** A routine that republished it
-would overwrite his edits and bring back the cost.
+**So: never publish this artifact from a routine.** A routine that republished
+it would overwrite Adrien's edits and bring back the cost.
 
-### How it works
+### How it reads
 
 Declared capabilities: `mcp` (the `Supabase` connector, `execute_sql` only) and
 `db` (the artifact's own store). Four calls, one per card, so a failure is
-contained to the card it feeds:
+contained to the card it feeds.
 
 | Card | Reads |
 |---|---|
@@ -154,63 +171,65 @@ contained to the card it feeds:
 | Nutrition | `doctor_food_log`, 7 days, both people |
 | Requires Action | `engine_email_actions`, `engine_calendar_intents`, `engine_phase_runs` |
 
-Card Credits is static markup. The masthead date and `complete_from` are computed
-in the page.
-
 Two things learned the hard way, both worth keeping:
 
 - **Rows are read from `payload` first, then `structuredContent`, then each
   content block's text** — never by walking the result for the first array of
-  objects. `res.content` is an array of `{type, text}` envelope blocks and gets
-  found first, so every card silently rendered the wrapper instead of the data.
+  objects. `res.content` is an array of `{type, text}` envelope blocks, so a
+  blind walk finds the wrapper and every card silently renders it as data.
 - **Each query names a column only it returns**, checked before the rows are
-  used. Four `watchTool` registrations on the same tool delivered each other's
-  results, and the money card drew the sync query's single row.
+  used. Four `watchTool` registrations on one tool delivered each other's
+  results, and the Money card drew the sync query's single row.
 
-Each connector error code gets its own message naming the one action that fixes
-it. A catch-all banner would hide that, so do not collapse them. An empty result
+Every connector error code gets its own message naming the one action that fixes
+it — reconnect, add the connector, choose one. A catch-all banner hides exactly
+the thing that would repair the page, so do not collapse them. An empty result
 is a legitimate answer and is rendered as such, never as a failure.
+
+Anything the data can determine is derived from the data. The masthead date and
+`complete_from` — the first month whose figures can be trusted — are both
+computed in the page, because `complete_from` was once a literal that went stale
+the moment a CSV import filled a gap, and the page spent weeks calling three
+years of complete history partial.
 
 ### Edits write straight to Postgres
 
 Tapping a charge opens a rename-and-categorize panel. On save the page writes to
-the database itself, re-reads, and only then drops its local copy — in that
-order, because marking the edit applied removes it from the overlay drawn over
-the rows, and doing that before the re-read makes a saved rename flick back to
-the old name. A write that fails stays queued and is retried on the next load,
-so the page drains its own queue and no routine has to.
+the database, re-reads, and only then drops its local copy — in that order,
+because marking the edit applied removes it from the overlay drawn over the rows,
+and doing that before the re-read makes a saved rename flick back to the old
+name. A write that fails stays queued and is retried on the next load, so the
+page drains its own queue and no routine has to.
 
 `execute_sql` offers no parameter binding, so every value is escaped in the page
-and the category is checked against the nine the table allows; a transaction id
-must be digits. Anything failing a check is not written.
+and the category checked against the nine the table allows; a transaction id must
+be digits. Anything failing a check is not written.
 
-### The store
-
-Four collections in the artifact's own db store, all written by the page:
-`credits` (which card credits are ticked), `actions` (dismissed items),
-`txn_edits` (the retry queue), and `diag` (what a card received when it could not
-read a reply — written only on failure).
+The artifact's own store holds four collections, all written by the page:
+`credits` (which credits are ticked), `actions` (dismissed items), `txn_edits`
+(the retry queue), and `diag` (what a card received when it could not read a
+reply — written only on failure).
 
 ### artifact-template.html
 
 A copy of what is published, kept as a backup and as something to read. It is
-**not** a build input — nothing renders from it. If the two disagree, the
-published page wins; copy it back over this file, not the other way around.
+**not** a build input; nothing renders from it. If the two disagree the published
+page wins — copy it back over this file, never the other way around.
 
 The ~30 transactions embedded in it are the offline fallback, the current month
-only. They are never the page's data and a refresh is never required.
+only. They are never the page's data and refreshing them is never required.
 
 Publish updates with the Artifact tool, passing the URL above so it updates in
 place, and pass no `favicon` and no `title` — a redeploy keeps them. Pass
-`capabilities` **only** to change them, and when you do, restate the whole set: a
+`capabilities` **only** to change them, and restate the whole set when you do: a
 non-empty declaration revokes anything left out, which would take the card ticks,
 the dismissals and the live data down together.
 
 ## The transaction feed
 
 `sweeps/simplefin-sweep.ts` is a Supabase edge function, deployed as
-**`accountant-simplefin-sweep`**. No Claude routine writes any `accountant_`
-table; this loads them.
+**`accountant-simplefin-sweep`** and fired by `pg_cron`. It is the cheapest thing
+here — no model, no tokens — and the model everything else aspires to.
 
 Needs `SIMPLEFIN_ACCESS_URL` in the project's Edge Function secrets;
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected. `verify_jwt` is on.
@@ -221,11 +240,12 @@ POST /functions/v1/accountant-simplefin-sweep?mode=<mode>
 
 - **`sweep`** — the daily job, one request. The window comes from the *oldest*
   per-account watermark minus a 5-day pad, clamped to 14–90 days, so a bank that
-  posts late or a connection that was down for a week is still picked up.
+  posts late or a connection that was down for a week is still caught up.
   Afterwards it flags any active account quiet longer than its own
-  `expected_idle_days` — per account, because he does not use every card.
+  `expected_idle_days`.
 - **`backfill`** — manual, resumable. Walks 90-day windows backwards from a
-  stored cursor, stopping after two empty ones. `?mode=backfill&from=YYYY-MM-DD&windows=8`
+  stored cursor, stopping after two empty ones.
+  `?mode=backfill&from=YYYY-MM-DD&windows=8`
 - **`dry_run`** — fetches and maps, writes nothing but a run row.
 
 Dedupe is on `external_id`, so overlapping windows are free.
@@ -237,29 +257,33 @@ through `accountant_ingest` with `source = 'csv'` — which is how the
 
 ## Both crons are fixed UTC
 
-They need a manual one-hour bump when Pacific goes back to standard time in
-November. They shift together, so the sweep stays behind the transaction load.
+They need a manual one-hour bump when Pacific returns to standard time in
+November. They shift together, so the transaction load stays ahead of the sweep.
 
-## History
+## The database
 
-This began as a job-application pipeline (`apply-engine`, still on GitHub): seven
-ATS APIs polled nightly, ~10,000 postings normalized, scored and filtered, with
-cover letters drafted for the survivors. Removed on 2026-09-04 when the job
-search was scrapped. Job *mail* is still labeled and legitimacy-checked, which is
-all that remains of it.
+`database/SCHEMA.md` is the file to read: every table, every constrained column
+with its legal values, and four rules the columns imply but cannot enforce.
+
+The numbered migrations beside it are an append-only record of how the schema got
+here. **They have all been applied and none of them needs running.** They are
+kept because a few carry reasoning worth having — why staleness is per account,
+why an out-of-band change was reconstructed by reading the live database, why the
+cron moved twice — not because the files are needed to rebuild anything. When a
+migration and the live database disagree, the database is right.
+
+## What this used to be
+
+It started as a job-application pipeline (`apply-engine`, still on GitHub): seven
+ATS APIs polled nightly, ~10,000 postings normalized, scored and filtered, cover
+letters drafted for the survivors. That came out on 2026-09-04 when the job hunt
+was called off, and its seven tables went with it. Job *mail* is still labelled
+and legitimacy-checked by the secretary skill, which is all that remains.
 
 It was then a three-phase pipeline — ingest, sweep, present — which is where the
-"phase" vocabulary in `engine_phase_runs` comes from. Phase 1 was removed on
-2026-09-06; phases 2, 2b and 3 became the single sweep on 2026-09-08.
-
-`sql/` became `database/`, `page/` became a single `artifact-template.html`,
-and the two scheduled jobs were grouped into `sweeps/` on 2026-09-09 — folders
-named for what they hold rather than for the technology in them.
-
-Migrations `002` and `003` were deleted on 2026-09-09. They described the
-apply-engine job tables and a retention function reading three tables that no
-longer exist. Git holds them; keeping dead migrations as files mostly invites
-someone running one.
+"phase" vocabulary in `engine_phase_runs` comes from. Phase 1 went on 2026-09-06;
+phases 2, 2b and 3 became the single sweep on 2026-09-08, the same day the page
+started reading the database for itself.
 
 ## License
 

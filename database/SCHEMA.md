@@ -2,8 +2,14 @@
 
 *(`database/SCHEMA.md` — the migrations beside it are how it got this way.)*
 
-A snapshot of the live schema, taken 2026-09-09. **Read this before writing
-anything**, especially before changing a value some routine or the page writes.
+A snapshot of the live schema, taken 2026-09-09, plus the rules the columns
+imply but cannot enforce. **Read this before writing anything**, especially
+before changing a value some routine or the page writes.
+
+The numbered migrations beside it are an append-only record of how the database
+got here, and they have all been applied. Nothing needs running. When this file
+and the live database disagree, the database is right — regenerate from the
+query below rather than trusting the page.
 
 Twice now a change has been made in two places and not the third. On 2026-09-08
 the phases were consolidated and both the routine and the page were updated to
@@ -60,6 +66,34 @@ write and no coercion.
 `drafted` and `Adrien`/`Ashley` are the three most likely to be got wrong:
 one reads like a noun where the column wants a past tense, and the other two are
 case-sensitive where nothing else is.
+
+## Rules that are not written in the columns
+
+Four things the schema implies but does not enforce. Each was learned by getting
+it wrong; each lives here rather than in a migration comment because this is the
+file people actually open.
+
+**A table's prefix names its owner.** `doctor_*` belongs to the doctor skill,
+`accountant_*` to the accountant skill and the SimpleFIN function, `engine_*` to
+the sweep. This is why a skill can be told "you own every table named
+`doctor_*`" rather than handed a list — adding a table later needs no skill
+edit. Enumerating table names in a skill description is the thing that goes
+stale; a prefix rule does not.
+
+**`accountant_clean_name()` strips `[0-9#*]` before storing.** So a
+`raw_pattern` in `accountant_merchant_aliases` containing a digit, `*` or `#`
+can never match anything, and it fails silently — the alias just sits there
+doing nothing forever. Strip them before writing one.
+
+**`accountant_transactions` is written only through `accountant_ingest(jsonb)`.**
+Never insert directly. Dedupe is on `external_id`, which is what makes
+overlapping SimpleFIN windows free.
+
+**Staleness is per account, not global.** `accountant_accounts.expected_idle_days`
+exists because a flat 3-day threshold flagged five of eight accounts on its first
+run, three of them correctly quiet — cards that genuinely go unused for weeks. A
+check that fires every morning on accounts that are fine is a check nobody reads.
+Change the number with an UPDATE; no code change needed.
 
 ## Tables
 
