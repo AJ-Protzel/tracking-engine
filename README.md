@@ -8,7 +8,7 @@ Two things run on a schedule. Everything else is conversational.
 
 ```
 12:30am PT   accountant-simplefin-sweep   Supabase edge function, pg_cron
- 1:00am PT   Tracking Engine Sweep        one Claude routine, sweep/routine.md
+ 1:00am PT   Tracking Engine Sweep        one Claude routine, sweeps/email-sweep.md
 ```
 
 That is the whole of it.
@@ -32,18 +32,29 @@ itself to Drive nightly so a cloud routine could email a chart back.
 ## Layout
 
 ```
-sweep/routine.md      the one Claude routine — fetched from GitHub at run time
-artifact/             the morning page: a backup copy of what is published
-simplefin/            the edge function that loads transactions
-sql/                  migrations, and SCHEMA.md — what the database allows
+sweeps/                 the two things that run on a schedule
+  email-sweep.md          the Claude routine's prompt, fetched from GitHub at 1am
+  simplefin-sweep.ts      the edge function Supabase runs at 12:30am
+  deno.json               its import map
+database/               SCHEMA.md — what the database allows — and the migrations
+artifact-template.html  a backup copy of the published page
 ```
 
-Fifteen files. There is deliberately one README — this one. Per-folder READMEs
-were tried and drifted: one still described a phase 3 that had been deleted.
+Sixteen files, one README. Per-folder READMEs were tried and drifted: one still
+described a phase 3 that had been deleted the day before.
 
-**`sweep/routine.md` must keep that exact path.** The scheduler fetches it by
-raw GitHub URL at run time, so moving or renaming it breaks the 1am run until
-the scheduler entry is edited to match.
+`sweeps/` groups by *what these do* rather than by language: both are scheduled
+passes that bring outside data in, which is the one job this repo automates.
+One happens to be TypeScript and the other a prompt.
+
+**`sweeps/email-sweep.md` must keep that exact path.** The scheduler fetches it
+by raw GitHub URL at run time, so moving or renaming it breaks the 1am run until
+the scheduler entry is edited to match. It moved here from `sweep/routine.md` on
+2026-09-09.
+
+`deno.json`'s import map is currently unused — both imports in the `.ts` are
+fully-qualified `jsr:` specifiers. It stays because it is deploy config for a
+function whose redeploy cannot be tested from here.
 
 ## Where the data comes from
 
@@ -57,7 +68,7 @@ One owner per table, with one knowing exception: the merchant maps are written
 by both the `accountant` skill and the page. They write the same two tables the
 same way and an upsert is idempotent, so a collision costs nothing.
 
-**Before writing anything, read `sql/SCHEMA.md`.** It lists every constrained
+**Before writing anything, read `database/SCHEMA.md`.** It lists every constrained
 column and its legal values. Two bugs in one day came from a value list living
 in the database and a second copy of it living in someone's head.
 
@@ -80,7 +91,7 @@ skill, so a sweep at 1am and a request at 2pm cannot drift apart.
 
 ## The sweep
 
-`sweep/routine.md` is the prompt. The cloud routine **Tracking Engine Sweep**
+`sweeps/email-sweep.md` is the prompt. The cloud routine **Tracking Engine Sweep**
 fetches it at run time and follows everything after the first `---`, so editing
 that file and pushing changes live behavior on the next run. There is nothing to
 paste into the scheduler — and pasting a prompt body there creates a second copy
@@ -180,7 +191,7 @@ Four collections in the artifact's own db store, all written by the page:
 `txn_edits` (the retry queue), and `diag` (what a card received when it could not
 read a reply — written only on failure).
 
-### artifact/template.html
+### artifact-template.html
 
 A copy of what is published, kept as a backup and as something to read. It is
 **not** a build input — nothing renders from it. If the two disagree, the
@@ -197,7 +208,7 @@ the dismissals and the live data down together.
 
 ## The transaction feed
 
-`simplefin/` is a Supabase edge function, deployed as
+`sweeps/simplefin-sweep.ts` is a Supabase edge function, deployed as
 **`accountant-simplefin-sweep`**. No Claude routine writes any `accountant_`
 table; this loads them.
 
@@ -240,6 +251,10 @@ all that remains of it.
 It was then a three-phase pipeline — ingest, sweep, present — which is where the
 "phase" vocabulary in `engine_phase_runs` comes from. Phase 1 was removed on
 2026-09-06; phases 2, 2b and 3 became the single sweep on 2026-09-08.
+
+`sql/` became `database/`, `page/` became a single `artifact-template.html`,
+and the two scheduled jobs were grouped into `sweeps/` on 2026-09-09 — folders
+named for what they hold rather than for the technology in them.
 
 Migrations `002` and `003` were deleted on 2026-09-09. They described the
 apply-engine job tables and a retention function reading three tables that no

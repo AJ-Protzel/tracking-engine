@@ -1,5 +1,7 @@
 # What the database actually holds
 
+*(`database/SCHEMA.md` — the migrations beside it are how it got this way.)*
+
 A snapshot of the live schema, taken 2026-09-09. **Read this before writing
 anything**, especially before changing a value some routine or the page writes.
 

@@ -6,6 +6,10 @@ at run time, so the push is the deployment and there is nothing to paste. Never
 copy a prompt body into the scheduler — that makes a second copy which drifts
 silently.
 
+**The scheduler fetches this file by its exact path.** Moving or renaming it
+breaks the next run until the scheduler entry is edited to match. It moved from
+`sweep/routine.md` to here on 2026-09-09.
+
 Cron is fixed UTC — `0 8 * * *` is 1:00am PDT and needs a one-hour bump in
 November. The SimpleFIN edge function runs at `30 7 * * *` (12:30am PDT) on its
 own `pg_cron` schedule, half an hour ahead of this, so the night's transactions
@@ -97,7 +101,8 @@ Never create the same event twice, and never modify or delete an existing one.
 
 ## The values the database will accept
 
-These columns are constrained. A value outside the list is rejected outright,
+These columns are constrained — the full list, with every table, is in
+`database/SCHEMA.md`. A value outside them is rejected outright,
 and there is no partial write — on 2026-09-09 the first run of this routine
 could not start at all because `phase` did not yet accept `sweep`, and could not
 record the failure either, because the failed row names the same column. Use
@@ -117,7 +122,7 @@ exactly that, so a draft written under any other value never reaches him.
 
 If you genuinely need a value that is not listed, stop and record it in the run
 summary. **Do not alter a constraint** — schema changes are a migration in
-`sql/`, made deliberately, not something a nightly routine decides.
+`database/`, made deliberately, not something a nightly routine decides.
 
 ## Step 3 — retention
 
@@ -158,7 +163,7 @@ system got expensive the first time.
   it queries Supabase itself through Adrien's connector every time he opens it,
   so it is always current and costs nothing to refresh. There is no template to
   render, no artifact to republish, and no URL here for you to publish to.
-  **Never publish an artifact from this routine.** See `page/README.md`.
+  **Never publish an artifact from this routine.** See the README.
 - **It does not drain page edits.** When he renames or recategorizes a charge on
   the page, the page writes it to Postgres itself and retries its own failures.
 - **It does not touch any `accountant_` table.** Transactions arrive from the
