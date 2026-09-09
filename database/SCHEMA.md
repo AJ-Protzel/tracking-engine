@@ -6,10 +6,19 @@ A snapshot of the live schema, taken 2026-09-09, plus the rules the columns
 imply but cannot enforce. **Read this before writing anything**, especially
 before changing a value some routine or the page writes.
 
-The numbered migrations beside it are an append-only record of how the database
-got here, and they have all been applied. Nothing needs running. When this file
-and the live database disagree, the database is right — regenerate from the
-query below rather than trusting the page.
+`functions.sql` beside it holds the three function bodies, generated with
+`pg_get_functiondef` — logic has to be kept as logic, and it is the one part of
+the schema this document cannot describe in prose.
+
+**There is no rebuild script and no migration folder.** The numbered migrations
+were deleted on 2026-09-09: every one had been applied, and `001` — the file
+claiming to reproduce the system — still created a `accountant_wedding_vendors`
+table dropped four days earlier. A rebuild script that rebuilds the wrong schema
+is worse than none, and git holds all eight files if the reasoning is ever
+wanted (`git log -- database/`).
+
+When this document and the live database disagree, the database is right.
+Regenerate from the query below rather than trusting the page.
 
 Twice now a change has been made in two places and not the third. On 2026-09-08
 the phases were consolidated and both the routine and the page were updated to

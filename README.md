@@ -37,11 +37,11 @@ sweeps/                 the two things that run on a schedule
   email-sweep.md          the Claude routine's prompt, fetched from GitHub at 1am
   simplefin-sweep.ts      the edge function Supabase runs at 12:30am
   deno.json               its import map
-database/               SCHEMA.md — what the database allows — and the migrations
+database/               SCHEMA.md — what the database allows — and functions.sql
 artifact-template.html  a backup copy of the published page
 ```
 
-Sixteen files, one README. `sweeps/` groups by what those two jobs *do* rather
+Nine files, one README. `sweeps/` groups by what those two jobs *do* rather
 than by what they are written in: one is TypeScript deployed to Supabase, the
 other a markdown prompt, and they belong together because they are the only two
 things here that run unasked.
@@ -262,15 +262,22 @@ November. They shift together, so the transaction load stays ahead of the sweep.
 
 ## The database
 
-`database/SCHEMA.md` is the file to read: every table, every constrained column
+Two files.
+
+`database/SCHEMA.md` is the one to read: every table, every constrained column
 with its legal values, and four rules the columns imply but cannot enforce.
 
-The numbered migrations beside it are an append-only record of how the schema got
-here. **They have all been applied and none of them needs running.** They are
-kept because a few carry reasoning worth having — why staleness is per account,
-why an out-of-band change was reconstructed by reading the live database, why the
-cron moved twice — not because the files are needed to rebuild anything. When a
-migration and the live database disagree, the database is right.
+`database/functions.sql` holds the three function bodies, generated straight
+from the live database with `pg_get_functiondef`. Logic cannot be described in
+prose, so it is kept as logic — and generating it beats copying it, because a
+copy drifts.
+
+There were eight numbered migrations until 2026-09-09. They are gone. Every one
+had already been applied, so none of them did anything; their reasoning has been
+lifted into `SCHEMA.md`; and `001`, the file that claimed to reproduce the
+system, still created a table dropped four days earlier. A rebuild script that
+rebuilds the wrong schema is worse than no rebuild script. Git has all eight if
+the history is ever wanted: `git log -- database/`.
 
 ## What this used to be
 
