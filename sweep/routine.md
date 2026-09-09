@@ -95,6 +95,30 @@ hand.
 
 Never create the same event twice, and never modify or delete an existing one.
 
+## The values the database will accept
+
+These columns are constrained. A value outside the list is rejected outright,
+and there is no partial write — on 2026-09-09 the first run of this routine
+could not start at all because `phase` did not yet accept `sweep`, and could not
+record the failure either, because the failed row names the same column. Use
+these exactly.
+
+| Column | Allowed |
+|---|---|
+| `engine_phase_runs.phase` | `sweep` — the legacy values exist for old rows; never write one |
+| `engine_phase_runs.status` | `running`, `ok`, `failed`, `skipped` |
+| `engine_email_actions.action` | `labeled`, `drafted`, `trashed`, `spam_rescued`, `blocked`, `skipped` |
+| `engine_calendar_intents.status` | `pending`, `created`, `skipped`, `failed` |
+| `engine_blocklist.status` | `Watching`, `Blocked` |
+
+`drafted` is the one that reads wrong: a draft you created is recorded as
+`action = 'drafted'`, not `'draft'`. The page's Requires Action card looks for
+exactly that, so a draft written under any other value never reaches him.
+
+If you genuinely need a value that is not listed, stop and record it in the run
+summary. **Do not alter a constraint** — schema changes are a migration in
+`sql/`, made deliberately, not something a nightly routine decides.
+
 ## Step 3 — retention
 
 One call, no arguments:

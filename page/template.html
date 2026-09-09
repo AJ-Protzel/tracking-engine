@@ -1986,7 +1986,9 @@ var TEACT = (function(){
       "select 'Draft' as tag, coalesce(subject_snippet,'(no subject)') as txt, " +
       "note as detail, to_char(acted_at at time zone 'America/Los_Angeles'," +
       "'YYYY-MM-DD') as dt from engine_email_actions " +
-      "where action = 'draft' and acted_at >= now() - interval '36 hours' " +
+      /* 'drafted', not 'draft' — that is the value the action check
+         constraint allows, and the only one the sweep can write. */
+      "where action = 'drafted' and acted_at >= now() - interval '36 hours' " +
       "union all " +
       "select 'Flagged', coalesce(subject_snippet,'(no subject)'), note, " +
       "to_char(acted_at at time zone 'America/Los_Angeles','YYYY-MM-DD') " +
