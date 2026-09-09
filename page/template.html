@@ -320,19 +320,23 @@ ul.todo code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5p
 </style>
 
 <!-- ==========================================================================
-     PHASE 3 FILLS EXACTLY THREE THINGS. Everything else derives from them.
+     NOTHING FILLS THESE IN. The page queries Supabase on load and computes
+     every figure, tab, bar, day group and line from what comes back.
 
-       1. #meta       - the header date and the sync line
-       2. #txns       - EVERY transaction, all months (the navigator pages back)
-       3. ul#todoList - one <li data-id="slug-YYYY-MM-DD"> per item
+     `date` and `synced` are left empty on purpose: the page writes its own
+     date, and the sync line names the real last SimpleFIN load. They are here
+     only so the shape stays valid if the connector is unreachable.
 
-     Do NOT hand-write totals, tab rows, bar widths, day groups, counts or the
-     Over Time line. They are computed from #txns at load, so they cannot drift
-     out of sync. Leave the Card Credits section alone; it is not daily data.
+     `complete_from` is the first month whose data can be trusted. Over Time
+     starts its running total there, because a month holding spending without
+     the income beside it draws a plunge that never happened. Lowered from
+     2026-08 to 2023-06 on 2026-09-09, once a CSV import filled the
+     2025-03 - 2026-03 gap: every month from 2023-06 now carries both volume
+     and inflows. Do not lower it further without checking that again.
      ========================================================================== -->
 
 <script type="application/json" id="meta">
-{"date": "Tuesday, September 8 2026", "synced": "Synced Sep 8 at 7:30 AM", "complete_from": "2026-08"}
+{"date": "", "synced": "", "complete_from": "2023-06"}
 </script>
 
 <!-- OFFLINE FALLBACK — the current month only, and nothing else.
