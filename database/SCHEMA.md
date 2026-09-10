@@ -67,6 +67,7 @@ write and no coercion.
 | `accountant_accounts.owner` | `me` `joint` `ashley` |
 | `accountant_accounts.network` | `visa` `mastercard` `amex` `discover`, or NULL |
 | `doctor_food_log.person` | `Adrien` `Ashley` — capitalised |
+| `doctor_targets.person` | `Adrien` `Ashley` — one row each, the person is the key |
 | `doctor_health_log.person` | `Adrien` `Ashley` |
 | `doctor_health_log.entry_type` | `symptom` `vital` `medication` `event` `note` |
 | `doctor_health_log.status` | `open` `resolved` `recurring` `monitoring` |
@@ -98,11 +99,16 @@ doing nothing forever. Strip them before writing one.
 Never insert directly. Dedupe is on `external_id`, which is what makes
 overlapping SimpleFIN windows free.
 
-**Staleness is per account, not global.** `accountant_accounts.expected_idle_days`
-exists because a flat 3-day threshold flagged five of eight accounts on its first
-run, three of them correctly quiet — cards that genuinely go unused for weeks. A
-check that fires every morning on accounts that are fine is a check nobody reads.
-Change the number with an UPDATE; no code change needed.
+**A pending row is rewritable; a settled row is not.** `accountant_ingest`
+overwrites an existing charge only `where accountant_transactions.pending`, so a
+provisional amount can be corrected as it settles and a settled charge can never
+be rewritten by a re-pull — including a rename made from the page.
+
+There is no staleness check any more. A flat threshold flagged five of eight
+accounts on its first run and a per-account one still fired on cards that were
+simply not being used; a warning that goes off on ordinary behaviour is one
+nobody reads. A genuinely broken bank connection still arrives on its own, in
+SimpleFIN's `errlist`.
 
 ## Tables
 
@@ -125,8 +131,8 @@ drains this table any more.
 
 | Table | Rows | Columns |
 |---|---|---|
-| `accountant_transactions` | 2,976 | id, account_id, date, amount numeric(12,2), description, category, source, external_id |
-| `accountant_accounts` | 16 | id, name, kind, active, issuer, annual_fee_usd, owner, network, last4, simplefin_account_id, bank, type, expected_idle_days, … |
+| `accountant_transactions` | 2,977 | id, account_id, date, amount numeric(12,2), description, category, source, external_id, pending |
+| `accountant_accounts` | 16 | id, name, kind, active, issuer, annual_fee_usd, owner, network, last4, simplefin_account_id, bank, type, … |
 | `accountant_merchant_aliases` | 714 | raw_pattern, clean_name |
 | `accountant_merchant_categories` | 642 | clean_name, category |
 | `accountant_phase_runs` | 12 | id, ran_at, mode, accounts_seen, txns_seen, rows_inserted, rows_skipped, errors, note |
@@ -139,12 +145,18 @@ re-derive the sign or take an absolute value.
 
 | Table | Rows | Columns |
 |---|---|---|
-| `doctor_food_log` | 0 | id, meal, person, date, calories, protein_g, carbs_g, fat_g, sugar_g |
-| `doctor_nutrition_items` | 0 | id, item, serving, and the same five nutrients |
+| `doctor_food_log` | 5 | id, meal, person, date, calories, protein_g, carbs_g, fat_g, sugar_g |
+| `doctor_nutrition_items` | 10 | id, item, serving, and the same five nutrients |
 | `doctor_health_log` | 0 | id, person, date, logged_at, entry_type, label, body_location, severity, value, unit, started_at, resolved_at, status, suspected_cause, notes |
+| `doctor_targets` | 0 | person, calories, protein_g, note, set_at |
 
-Empty because nothing has been logged yet, not because anything is broken. The
-page renders that as "no entries yet".
+A table with no rows is not a broken one — the page renders that as "no entries
+yet".
+
+**Dates in `doctor_*` are Pacific dates, and this database runs in UTC.** Write
+and read them as `(now() at time zone 'America/Los_Angeles')::date`; plain
+`current_date` is already tomorrow from 5pm Pacific onwards, which silently
+files an evening meal on the wrong day.
 
 ## Views, functions, jobs
 
@@ -155,7 +167,11 @@ spend totals.
 **Functions**
 
 - `accountant_ingest(jsonb)` — the only way rows enter `accountant_transactions`.
-  Never insert directly.
+  Never insert directly. Takes `pending`; updates an existing row only while
+  that row is still pending.
+- `accountant_prune_pending(since date, keep text[])` — deletes pending rows in
+  the window the sweep just covered that the feed no longer lists, so a charge
+  the bank abandons does not linger for ever.
 - `accountant_clean_name(text)` — with no alias match, returns `initcap()` of the
   text with `[0-9#*]` stripped. **A `raw_pattern` containing a digit, `*` or `#`
   can therefore never match anything, and it fails silently.** Strip them before
