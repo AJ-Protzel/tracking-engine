@@ -99,11 +99,16 @@ doing nothing forever. Strip them before writing one.
 Never insert directly. Dedupe is on `external_id`, which is what makes
 overlapping SimpleFIN windows free.
 
-**Staleness is per account, not global.** `accountant_accounts.expected_idle_days`
-exists because a flat 3-day threshold flagged five of eight accounts on its first
-run, three of them correctly quiet — cards that genuinely go unused for weeks. A
-check that fires every morning on accounts that are fine is a check nobody reads.
-Change the number with an UPDATE; no code change needed.
+**A pending row is rewritable; a settled row is not.** `accountant_ingest`
+overwrites an existing charge only `where accountant_transactions.pending`, so a
+provisional amount can be corrected as it settles and a settled charge can never
+be rewritten by a re-pull — including a rename made from the page.
+
+There is no staleness check any more. A flat threshold flagged five of eight
+accounts on its first run and a per-account one still fired on cards that were
+simply not being used; a warning that goes off on ordinary behaviour is one
+nobody reads. A genuinely broken bank connection still arrives on its own, in
+SimpleFIN's `errlist`.
 
 ## Tables
 
@@ -126,8 +131,8 @@ drains this table any more.
 
 | Table | Rows | Columns |
 |---|---|---|
-| `accountant_transactions` | 2,976 | id, account_id, date, amount numeric(12,2), description, category, source, external_id |
-| `accountant_accounts` | 16 | id, name, kind, active, issuer, annual_fee_usd, owner, network, last4, simplefin_account_id, bank, type, expected_idle_days, … |
+| `accountant_transactions` | 2,977 | id, account_id, date, amount numeric(12,2), description, category, source, external_id, pending |
+| `accountant_accounts` | 16 | id, name, kind, active, issuer, annual_fee_usd, owner, network, last4, simplefin_account_id, bank, type, … |
 | `accountant_merchant_aliases` | 714 | raw_pattern, clean_name |
 | `accountant_merchant_categories` | 642 | clean_name, category |
 | `accountant_phase_runs` | 12 | id, ran_at, mode, accounts_seen, txns_seen, rows_inserted, rows_skipped, errors, note |
@@ -162,7 +167,11 @@ spend totals.
 **Functions**
 
 - `accountant_ingest(jsonb)` — the only way rows enter `accountant_transactions`.
-  Never insert directly.
+  Never insert directly. Takes `pending`; updates an existing row only while
+  that row is still pending.
+- `accountant_prune_pending(since date, keep text[])` — deletes pending rows in
+  the window the sweep just covered that the feed no longer lists, so a charge
+  the bank abandons does not linger for ever.
 - `accountant_clean_name(text)` — with no alias match, returns `initcap()` of the
   text with `[0-9#*]` stripped. **A `raw_pattern` containing a digit, `*` or `#`
   can therefore never match anything, and it fails silently.** Strip them before

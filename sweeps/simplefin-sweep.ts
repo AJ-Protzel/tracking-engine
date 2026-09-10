@@ -23,9 +23,10 @@ const DAY = 86400;
 const MAX_WINDOW_DAYS = 90;   // SimpleFIN's per-request span limit
 const SWEEP_LOOKBACK_PAD = 5; // re-pull this many days behind the watermark
 const SWEEP_MIN_DAYS = 14;
-// Staleness is per account (accountant_accounts.expected_idle_days), because
-// he does not use every card: a 23-day gap on a dormant BofA card is normal and
-// a 5-day gap on the daily driver is not. The view computes the `stale` flag.
+// Pending charges are carried. Excluding them held the table two to three days
+// behind every card, which read as a dead feed rather than the settlement lag
+// it was. They are provisional — the amount can move, and some never settle —
+// so a pending row stays rewritable and a settled one does not.
 const BACKFILL_FLOOR = "2019-01-01";
 const BACKFILL_DEFAULT_WINDOWS = 6;
 const BACKFILL_MAX_WINDOWS = 20;
@@ -47,7 +48,7 @@ function splitAccessUrl(raw: string) {
 type Window = { start: number; end: number | null };
 
 async function fetchWindow(base: string, auth: string, w: Window) {
-  const qs = new URLSearchParams({ "start-date": String(w.start), pending: "0" });
+  const qs = new URLSearchParams({ "start-date": String(w.start), pending: "1" });
   if (w.end !== null) qs.set("end-date", String(w.end));
   const res = await fetch(base + "/accounts?" + qs.toString(), {
     headers: { Authorization: "Basic " + auth },
@@ -89,16 +90,22 @@ function mapRows(payload: any, byExternal: Map<string, any>) {
       continue;
     }
     for (const t of txns) {
-      if (t.pending) continue;
       const amt = Number(t.amount);
       if (!isFinite(amt) || amt === 0) continue;
+      const pending = !!t.pending;
+      // `posted` is 0 until a charge settles, and pacificDate(0) is 1969.
+      // transacted_at is when it actually happened, which is the date he
+      // recognises anyway.
+      const when = Number(t.posted) || Number(t.transacted_at) || 0;
+      if (!when) continue;
       rows.push({
         account_id: acct.id,
-        date: pacificDate(Number(t.posted)),
+        date: pacificDate(when),
         amount: amt,                       // already signed: - out, + in
         description: String(t.description ?? "").trim(),
         source: "simplefin",
         external_id: "simplefin:" + t.id,
+        pending,
       });
     }
   }
@@ -150,7 +157,7 @@ Deno.serve(async (req: Request) => {
     (mapped ?? []).map((r: any) => [r.simplefin_account_id, r]));
 
   const { data: marks } = await db.from("accountant_account_watermarks")
-    .select("account_id, bank, account, active, linked, txns, last_txn, days_stale, expected_idle_days, stale");
+    .select("account_id, bank, account, active, linked, txns, last_txn");
   const linked = (marks ?? []).filter((m: any) => m.linked && m.active);
 
   const fail = async (msg: string, note: string) => {
@@ -217,18 +224,14 @@ Deno.serve(async (req: Request) => {
     errors.push(...ing.errors);
     if (unmapped.length) errors.push("unmapped accounts skipped: " + unmapped.join(", "));
 
-    // Health check, re-read AFTER the write so today's rows count. The view
-    // applies each account's own expected_idle_days.
-    const { data: after } = await db.from("accountant_account_watermarks")
-      .select("bank, account, last_txn, days_stale, expected_idle_days, stale");
-    const stale = (after ?? [])
-      .filter((m: any) => m.stale)
-      .map((m: any) => m.bank + " " + m.account + ": " +
-        (m.last_txn === null
-          ? "no transactions ever"
-          : m.last_txn + " (" + m.days_stale + "d idle, expected <= " +
-            m.expected_idle_days + "d)"));
-    if (stale.length) errors.push("health: feed may be stale - " + stale.join("; "));
+    // A pending charge the bank has dropped never settles. Anything still
+    // pending inside the window just covered, that the feed no longer lists,
+    // is deleted — so the table matches what the bank says right now.
+    const keep = rows.filter((r: any) => r.pending).map((r: any) => r.external_id);
+    const { data: pruned, error: pruneErr } = await db.rpc("accountant_prune_pending", {
+      since: toISO(w.start), keep,
+    });
+    if (pruneErr) errors.push("prune pending: " + pruneErr.message);
 
     await db.from("accountant_phase_runs").insert({
       mode, accounts_seen: accountsSeen, txns_seen: txnsSeen,
@@ -240,7 +243,8 @@ Deno.serve(async (req: Request) => {
     return json({
       mode, days, basis, window: { from: toISO(w.start), to: "now" },
       accounts_seen: accountsSeen, txns_seen: txnsSeen, candidates: rows.length,
-      inserted: ing.inserted, skipped: ing.skipped, stale, errors,
+      inserted: ing.inserted, skipped: ing.skipped,
+      pending: keep.length, pending_dropped: pruned ?? 0, errors,
       ms: Date.now() - started,
     });
   }

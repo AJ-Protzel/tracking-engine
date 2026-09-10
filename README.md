@@ -241,8 +241,8 @@ POST /functions/v1/accountant-simplefin-sweep?mode=<mode>
 - **`sweep`** — the daily job, one request. The window comes from the *oldest*
   per-account watermark minus a 5-day pad, clamped to 14–90 days, so a bank that
   posts late or a connection that was down for a week is still caught up.
-  Afterwards it flags any active account quiet longer than its own
-  `expected_idle_days`.
+  Pending charges are carried and marked `pending`; afterwards any pending row
+  in that window the feed no longer lists is deleted.
 - **`backfill`** — manual, resumable. Walks 90-day windows backwards from a
   stored cursor, stopping after two empty ones.
   `?mode=backfill&from=YYYY-MM-DD&windows=8`
