@@ -67,6 +67,7 @@ write and no coercion.
 | `accountant_accounts.owner` | `me` `joint` `ashley` |
 | `accountant_accounts.network` | `visa` `mastercard` `amex` `discover`, or NULL |
 | `doctor_food_log.person` | `Adrien` `Ashley` — capitalised |
+| `doctor_targets.person` | `Adrien` `Ashley` — one row each, the person is the key |
 | `doctor_health_log.person` | `Adrien` `Ashley` |
 | `doctor_health_log.entry_type` | `symptom` `vital` `medication` `event` `note` |
 | `doctor_health_log.status` | `open` `resolved` `recurring` `monitoring` |
@@ -139,12 +140,18 @@ re-derive the sign or take an absolute value.
 
 | Table | Rows | Columns |
 |---|---|---|
-| `doctor_food_log` | 0 | id, meal, person, date, calories, protein_g, carbs_g, fat_g, sugar_g |
-| `doctor_nutrition_items` | 0 | id, item, serving, and the same five nutrients |
+| `doctor_food_log` | 5 | id, meal, person, date, calories, protein_g, carbs_g, fat_g, sugar_g |
+| `doctor_nutrition_items` | 10 | id, item, serving, and the same five nutrients |
 | `doctor_health_log` | 0 | id, person, date, logged_at, entry_type, label, body_location, severity, value, unit, started_at, resolved_at, status, suspected_cause, notes |
+| `doctor_targets` | 0 | person, calories, protein_g, note, set_at |
 
-Empty because nothing has been logged yet, not because anything is broken. The
-page renders that as "no entries yet".
+A table with no rows is not a broken one — the page renders that as "no entries
+yet".
+
+**Dates in `doctor_*` are Pacific dates, and this database runs in UTC.** Write
+and read them as `(now() at time zone 'America/Los_Angeles')::date`; plain
+`current_date` is already tomorrow from 5pm Pacific onwards, which silently
+files an evening meal on the wrong day.
 
 ## Views, functions, jobs
 
